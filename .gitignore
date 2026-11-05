@@ -14,6 +14,9 @@ dist/
 downloads/*.apk
 downloads/*.zip
 *.apk
+!apks/*.apk
+!apks/
+*.img
 .env
 .venv
 env/
@@ -44,3 +47,4 @@ Desktop.ini
 # Temporary and log files
 *.log
 *.tmp
+

@@ -1,15 +1,31 @@
 # 🛵 Ola S1 Quick Mod & Navigation Suite
 
 [![Target OS](https://img.shields.io/badge/MoveOS-2.x%20|%203.x%20|%204.x%20|%205.x-green.svg)](#supported-vehicles--compatibility-matrix)
-[![Head Unit OS](https://img.shields.io/badge/Head%20Unit-Android%207.1.1-blue.svg)](#technical-specifications)
+[![Head Unit OS](https://img.shields.io/badge/Head%20Unit-Android%2010%20%7C%2013-blue.svg)](#technical-specifications)
 [![Stack](https://img.shields.io/badge/Stack-Python%203%20+%20ADB-brightgreen.svg)](#key-features)
-[![Protocol](https://img.shields.io/badge/Protocol-Root%20gRPC%20(Port%2050005)-orange.svg)](#how-it-works)
+[![Protocol](https://img.shields.io/badge/Protocol-Root%20gRPC%20%28Port%2050005%29-orange.svg)](#technical-specifications)
 [![Safety](https://img.shields.io/badge/Safety-100%25%20In--Memory%20RAM%20Mount-blueviolet.svg)](#safety-reversibility--zero-flash-modification)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An automated, one-click setup utility to unlock wireless ADB, bypass aggressive vehicle sleep timeouts, and configure **Floating Touch Navigation (Back, Home, Settings)** and **Ad-Free Music (Square)** on Ola S1 electric scooters.
+An automated, one-click setup utility to unlock wireless ADB, bypass aggressive vehicle sleep timeouts, and configure **Floating Touch Navigation (Back, Home, Settings)** and **Ola Music Mod** on Ola S1 electric scooters.
 
 Zero soldering, zero flash partition writes, and 100% reversible with a single scooter restart.
+
+---
+
+## 🎥 Video Demonstration (Ola S1 Pro Gen 2)
+
+Watch the modded infotainment interface and floating touch navigation running live on an **Ola S1 Pro (Gen 2)** with MoveOS:
+
+https://github.com/user-attachments/assets/OLA%20S1%20PRO%20GEN%202%20MODDED.mp4
+
+<video src="OLA%20S1%20PRO%20GEN%202%20MODDED.mp4" controls="controls" width="100%" style="max-height: 520px;">
+  <p>Your browser does not support the video tag. You can <a href="OLA%20S1%20PRO%20GEN%202%20MODDED.mp4">download or view the video directly here</a>.</p>
+</video>
+
+> [!NOTE]
+> **Notice on Siri / iOS Voice Unlock in the Video:**
+> The Siri Shortcuts / iOS voice unlocking feature demonstrated in the video is **private** and not part of this public release, as it relies on personal account credentials and private session keys. You can unlock your vehicle normally using the official **Ola Companion App**, the touchscreen passkey on the dashboard, or through the included wireless ADB / gRPC commands.
 
 ---
 
@@ -18,8 +34,9 @@ Zero soldering, zero flash partition writes, and 100% reversible with a single s
 * 🔍 **Zero-Config Auto-Discovery:** Automatically scans IPv6 link-local multicast and discovers the scooter's head unit IP over your home Wi-Fi or hotspot.
 * ⚡ **Anti-Sleep Mechanism (Diagnostic App):** Launches Ola's native **Diagnostic App (`com.ola.mfgapp`)** during setup, suppressing the Vehicle State Manager from locking the screen or turning off Wi-Fi.
 * 🔓 **Safe & Reversible In-Memory ADB Unlock:** Authorizes ADB over TCP port 5555 using a temporary RAM bind-mount (`mount --bind`). No system, vendor, or boot partitions are ever modified.
-* 📱 **Floating Touch Navigation Controls:** Downloads and deploys **Quick Ball** to provide essential touch buttons (Back, Home, Settings) directly on the infotainment display.
-* 🎵 **Ad-Free Music Player:** Automatically fetches and installs **Square Music**, giving you offline and local music playback directly from the dash.
+* 📱 **Floating Touch Navigation Controls:** Installs **Ola Balls** to provide essential touch buttons (Back, Home, Settings) directly on the infotainment display.
+* 🎵 **Offline & Streaming Music Player:** Installs **Ola Music Mod**, giving you ad-free music playback directly from the dash.
+* 📦 **Pre-Bundled Local APKs:** Modded application packages are pre-bundled in `apks/` for instant, offline installation with zero external dependencies.
 * 🛠️ **Automated Permission Grants:** Grants `SYSTEM_ALERT_WINDOW` (overlay), `WRITE_SETTINGS`, and Android Accessibility Services via ADB without manual prompt tapping.
 * 🎯 **1-Click Execution:** Double-click `setup.bat` and let the utility handle discovery, waking, ADB unlocking, downloading, and installation automatically.
 * 🐍 **Direct Root Controller (`ola.py`):** Includes a standalone, weakly-typed gRPC root control script to inspect vehicle properties, open settings, take screenshots, or execute root shell commands.
@@ -30,24 +47,30 @@ Zero soldering, zero flash partition writes, and 100% reversible with a single s
 
 | Vehicle Model | Platform / Gen | Head Unit SoC | MoveOS Version | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Ola S1 Pro (Gen 1)** | 7" 720p Touch Display | Qualcomm Snapdragon 212 (APQ8009) | MoveOS 2, 3, 4, 5 | ✅ **100% Tested & Verified** |
-| **Ola S1 (Gen 1)** | 7" 720p Touch Display | Qualcomm Snapdragon 212 (APQ8009) | MoveOS 2, 3, 4, 5 | ✅ **100% Tested & Verified** |
-| **Ola S1 Pro (Gen 2)** | 7" Touch Display | Qualcomm Snapdragon Platform | MoveOS 3, 4, 5 | ✅ **Supported** |
-| **Ola S1 Air** | 7" Touch Display | Qualcomm Snapdragon Platform | MoveOS 3, 4, 5 | ✅ **Supported** |
-| **Ola S1 X+** | 5" / 7" Display | Qualcomm Snapdragon Platform | MoveOS 4, 5 | ✅ **Supported** (gRPC enabled) |
+| **Ola S1 Pro (Gen 2)** | 7" Touch Display | Qualcomm Snapdragon 625 (MSM8953, `arm64-v8a`) | MoveOS 3, 4, 5 | ✅ **100% Tested & Verified** |
+| **Ola S1 Pro (Gen 1)** | 7" 720p Touch Display | Qualcomm Snapdragon 212 (APQ8009) | MoveOS 2, 3, 4, 5 | 🟢 **Supported (Untested)** |
+| **Ola S1 (Gen 1)** | 7" 720p Touch Display | Qualcomm Snapdragon 212 (APQ8009) | MoveOS 2, 3, 4, 5 | 🟢 **Supported (Untested)** |
+| **Ola S1 Air** | 7" Touch Display | Qualcomm / MediaTek Platform | MoveOS 3, 4, 5 | 🟢 **Supported (Untested)** |
+| **Ola S1 X+** | 5" / 7" Display | Qualcomm / MediaTek Platform | MoveOS 4, 5 | 🟢 **Supported (Untested)** |
 
 ---
 
 ## 📋 Technical Specifications
 
-| Component / Layer | Specification | Details |
+> Verified live on **Ola S1 Pro (Gen 2)** running MoveOS on Android 10 (Snapdragon 625).
+
+| Component / Layer | Specification | Technical Details |
 | :--- | :--- | :--- |
-| **Head Unit OS** | Android 7.1.1 (Nougat) | Customized AOSP build tailored for MoveOS |
-| **SoC / Architecture** | Qualcomm APQ8009 / Snapdragon | Quad-Core ARM Cortex-A7 (32-bit `armeabi-v7a`) / ARM64 |
-| **Communication Daemon** | `wifican` gRPC Service | Weakly-typed root execution service on TCP port `50005` |
-| **Interface Addressing** | IPv6 Link-Local (`fe80::/64`) | Discovered via `ff02::1` multicast neighbor probing |
-| **ADB Auth Target** | `/data/misc/adb/adbkeymoveos3_pub_prod` | Temporary bind-mounted from `/data/local/tmp/adb_keys_mine` |
-| **Vehicle Subsystems** | Infotainment (HMI) Only | MCU, BMS, and motor controllers remain strictly isolated |
+| **Target Vehicle** | Ola S1 Pro (Gen 2) | 7" Touchscreen Infotainment Unit (A/B Partitioning) |
+| **Head Unit OS** | Android 10 (API Level 29) | AOSP Build `QKQ1.191008.001` (MoveOS) |
+| **Processor (SoC)** | Qualcomm Snapdragon 625 (`msm8953`) | Octa-Core ARM Cortex-A53 @ 2.0 GHz (64-bit) |
+| **Primary ABI** | `arm64-v8a` (64-bit) | Native 64-bit userland (compatible with `armeabi-v7a`) |
+| **Graphics (GPU)** | Qualcomm Adreno 506 | Hardware acceleration for native Kanzi HMI dashboard |
+| **Diagnostics Service** | Diagnostics gRPC Daemon | Weakly-typed root (`uid 0`) execution on TCP port `50005` |
+| **Network Interface** | IPv6 Link-Local (`fe80::/64`) | Discovered via Wi-Fi `ff02::1` multicast ICMPv6 probing |
+| **ADB Auth Target** | `/data/misc/adb/adbkeymoveos3_pub_prod` | In-memory bind-mounted from `/data/local/tmp/adb_keys_mine` |
+| **Anti-Sleep Activity** | `com.ola.mfgapp/.MainActivity` | Suppresses `vehiclestatemanager` inactivity auto-lock |
+| **Subsystem Safety** | HMI Infotainment Layer Only | Powertrain, BMS, and MCU remain physically & logically isolated |
 
 ---
 
@@ -73,8 +96,8 @@ The script will automatically:
 3. Scan your Wi-Fi interface for your scooter's IPv6 link-local address.
 4. Launch the Ola Diagnostic App to suppress sleep timeouts.
 5. In-memory bind your PC's ADB key and connect over TCP 5555.
-6. Fetch the latest releases of **Quick Ball** and **Square** from GitHub.
-7. Install APKs, grant overlay/accessibility permissions, and launch the Quick Ball setup UI.
+6. Verify pre-bundled APKs (**Ola Balls** and **Ola Music Mod**) from `apks/`.
+7. Install APKs, grant overlay/accessibility permissions, and return scooter to Ola Home Dashboard.
 
 ---
 
@@ -106,21 +129,18 @@ The script automatically launches Ola's internal **Manufacturing / Diagnostic Ap
 
 ---
 
-## 📱 Quick Ball Configuration (1-Minute Guide)
+## 📱 Ola Balls Navigation & Controls
 
-Once setup finishes, the **Quick Ball** configuration screen appears on your scooter dash:
+**Ola Balls** comes fully pre-configured out of the box with zero manual configuration required!
 
-1. **Turn ON:** Toggle the master switch at the top of the Quick Ball screen.
-2. **Select Shortcuts:** Tap on **"Select shortcuts"** (or **"Shortcuts"**).
-3. **Remove Defaults:** Delete unnecessary default toggles (e.g., Torch, Wi-Fi, Bluetooth).
-4. **Configure Essential Shortcuts:**
-   * ⬅️ **Back:** Emulates Android Back button in any app.
-   * 🏠 **Home:** Instantly returns to the Ola dashboard and speedometer.
-   * ⚙️ **Settings:** Opens native Android Settings directly.
-   * 🎵 **Square:** Tap `App` -> Select `Square` for your ad-free music player.
-5. **Position Floating Ball:** Drag the floating icon to your preferred edge of the screen.
+Once the installation finishes, the script automatically returns your scooter display to the **Ola Home Dashboard (`com.olaelectric.hmiclient`)**, with the floating navigation ball active and ready to use:
 
-Now you have instant touch navigation to switch between apps and return to the speedometer with a single tap!
+* ⬅️ **Back:** Emulates the Android Back button inside any app or settings menu.
+* 🏠 **Home:** Instantly returns to the Ola speedometer dashboard.
+* ⚙️ **Settings:** Opens native Android Settings directly (Wi-Fi, Bluetooth, Display, etc.).
+* 🎵 **Ola Music Mod:** Opens the ad-free streaming & offline music player.
+
+Simply tap the floating ball on your screen anytime to switch between music, settings, and your speedometer!
 
 ---
 
@@ -167,8 +187,10 @@ python ola.py interactive --ipv6 fe80::ea8d:a6ff:fea2:faf0%22
 
 ```
 ola-s1-mods/
-├── downloads/             # Local cache for fetched application packages (.gitkeep)
-├── .gitignore             # Standard Git ignore rules (APKs, Python cache, OS files)
+├── apks/                  # Pre-bundled mod APK packages
+│   ├── olaballs-1.0.0-lite-release.apk
+│   └── olamusicmod-release.apk
+├── .gitignore             # Standard Git ignore rules
 ├── LICENSE                # MIT License with research & safety disclaimer
 ├── ola.py                 # Pure Python gRPC root communication engine
 ├── README.md              # Project documentation & user guide
@@ -188,9 +210,10 @@ ola-s1-mods/
 
 ### 🤝 Acknowledgments & Credits
 
-* **Chayan Mistry** — [Quick Ball](https://github.com/chayanforyou/QuickBall) navigation overlay for Android.
+* **Dev Vikram Singh ([@itsmobsys](https://github.com/itsmobsys))** — Core reverse-engineering research on the Ola S1 `wifican` diagnostics gRPC protocol and the original implementation of `ola.py` in the [`ola-s1-rea`](https://github.com/itsmobsys/ola-s1-rea) project.
+* **Chayan Mistry** — [Quick Ball](https://github.com/chayanforyou/QuickBall) lightweight floating touch navigation overlay for Android.
 * **Lelonio** — [Square Music](https://github.com/Lelonio/Square) lightweight, ad-free music player.
-* The open-source Android and reverse engineering research community.
+* The open-source Android and automotive reverse engineering community.
 
 ---
 

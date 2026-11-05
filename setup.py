@@ -5,14 +5,13 @@ Automates:
   1. Finding Ola scooter IP over local Wi-Fi
   2. Keeping scooter awake via Ola Diagnostic App
   3. Unlocking ADB access (safe, reversible RAM bind-mount)
-  4. Fetching QuickBall and Square (Music) from GitHub
+  4. Verifying bundled local APKs (Ola Balls & Ola Music Mod)
   5. Installing APKs & granting required permissions
-  6. Launching QuickBall for easy floating navigation
+  6. Launching Ola Balls for easy floating navigation
 """
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 import shutil
@@ -21,7 +20,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.request
 
 try:
     import grpc
@@ -185,53 +183,8 @@ echo "bound $T"
     print("    [+] ADB connected successfully as 'device'!")
     return device
 
-def fetch_apk(repo: str, filter_fn, out_filename: str, fallback_url: str) -> str:
-    """Downloads APK from GitHub releases or uses local cache."""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    downloads_dir = os.path.join(script_dir, "downloads")
-    os.makedirs(downloads_dir, exist_ok=True)
-    dest_path = os.path.join(downloads_dir, out_filename)
-
-    if os.path.exists(dest_path) and os.path.getsize(dest_path) > 200 * 1024:
-        print(f"    Found existing {out_filename} ({os.path.getsize(dest_path)/1024/1024:.2f} MB), ready.")
-        return dest_path
-
-    print(f"    Checking GitHub release for {repo}...")
-    url = None
-    try:
-        req = urllib.request.Request(
-            f"https://api.github.com/repos/{repo}/releases/latest",
-            headers={"User-Agent": "OlaSetup/1.0"}
-        )
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            data = json.loads(resp.read().decode())
-            for asset in data.get("assets", []):
-                name = asset.get("name", "")
-                if filter_fn(name):
-                    url = asset.get("browser_download_url")
-                    print(f"    Found release asset: {name}")
-                    break
-    except Exception as e:
-        print(f"    Notice: GitHub API query ({e}). Using direct fallback URL.")
-
-    if not url:
-        url = fallback_url
-
-    print(f"    Downloading {out_filename} from {url} ...")
-    def progress(count, block_size, total_size):
-        done = count * block_size
-        if total_size > 0:
-            pct = min(100, done * 100 / total_size)
-            print(f"\r      Downloaded: {done/1024/1024:.1f}/{total_size/1024/1024:.1f} MB ({pct:.1f}%)", end="", flush=True)
-        else:
-            print(f"\r      Downloaded: {done/1024/1024:.1f} MB", end="", flush=True)
-
-    urllib.request.urlretrieve(url, dest_path, reporthook=progress)
-    print(f"\n    [+] Saved {out_filename} ({os.path.getsize(dest_path)/1024/1024:.2f} MB)")
-    return dest_path
-
 def install_and_grant(device: str, adb_exe: str, qb_apk: str, sq_apk: str):
-    """Installs APKs and grants QuickBall all necessary Android permissions."""
+    """Installs bundled APKs and grants Ola Balls all necessary Android permissions."""
     def safe_install(apk_path: str, app_name: str):
         print(f"[*] Installing {app_name}...")
         res = subprocess.run([adb_exe, "-s", device, "install", "-r", "-d", apk_path], capture_output=True, text=True)
@@ -243,26 +196,32 @@ def install_and_grant(device: str, adb_exe: str, qb_apk: str, sq_apk: str):
         else:
             print(f"    [*] Install status: {combined or 'Done'}")
 
-    safe_install(qb_apk, "Quick Ball navigation app")
-    safe_install(sq_apk, "Square music player")
+    safe_install(qb_apk, "Ola Balls navigation overlay")
+    safe_install(sq_apk, "Ola Music Mod player")
 
-    qb_pkg = "io.github.chayanforyou.quickball"
-    qb_svc = f"{qb_pkg}/io.github.chayanforyou.quickball.core.QuickBallService"
+    pkg = "com.asjohn720.olaballs"
+    svc = f"{pkg}/com.asjohn720.olaballs.core.QuickBallService"
 
-    print("[*] Granting special permissions to Quick Ball via ADB...")
+    print("[*] Granting special permissions to Ola Balls via ADB...")
     # 1. Overlay (floating window)
-    subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", qb_pkg, "SYSTEM_ALERT_WINDOW", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", pkg, "SYSTEM_ALERT_WINDOW", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     # 2. Write Settings
-    subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", qb_pkg, "WRITE_SETTINGS", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", pkg, "WRITE_SETTINGS", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     # 3. Accessibility Service (provides hardware-like Back, Home, Recents functions)
-    subprocess.run([adb_exe, "-s", device, "shell", "settings", "put", "secure", "enabled_accessibility_services", qb_svc], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run([adb_exe, "-s", device, "shell", "settings", "put", "secure", "enabled_accessibility_services", svc], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run([adb_exe, "-s", device, "shell", "settings", "put", "secure", "accessibility_enabled", "1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     print("    [+] SYSTEM_ALERT_WINDOW granted.")
     print("    [+] WRITE_SETTINGS granted.")
     print("    [+] Accessibility Service enabled.")
 
-    print("[*] Launching Quick Ball configuration activity...")
-    subprocess.run([adb_exe, "-s", device, "shell", "am", "start", "-n", f"{qb_pkg}/.ui.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print("[*] Initializing Ola Balls overlay...")
+    subprocess.run([adb_exe, "-s", device, "shell", "am", "start", "-n", f"{pkg}/.ui.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(1.2)
+
+    print("[*] Bringing Ola Home Dashboard (com.olaelectric.hmiclient) to front...")
+    subprocess.run([adb_exe, "-s", device, "shell", "am", "start", "-n", "com.olaelectric.hmiclient/.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run([adb_exe, "-s", device, "shell", "input", "keyevent", "3"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print("    [+] Scooter returned to speedometer home screen.")
 
 def main():
     print(BANNER)
@@ -330,43 +289,41 @@ def main():
     print_step(4, "Unlocking ADB Access")
     device = unlock_adb(channel, ipv6, scope, adb_exe)
 
-    # Step 5: Fetch APKs
-    print_step(5, "Fetching Quick Ball & Square Apps")
-    qb_apk = fetch_apk(
-        repo="chayanforyou/QuickBall",
-        filter_fn=lambda n: n.endswith(".apk") and "foss" in n.lower(),
-        out_filename="quickball.apk",
-        fallback_url="https://github.com/chayanforyou/QuickBall/releases/download/v6.1.0/quick-ball-6.1.0-foss-release.apk"
-    )
-    sq_apk = fetch_apk(
-        repo="Lelonio/Square",
-        filter_fn=lambda n: n.endswith(".apk") and ("arm64" in n.lower() or "universal" in n.lower()),
-        out_filename="square.apk",
-        fallback_url="https://github.com/Lelonio/Square/releases/download/v2.8.0/square-2.8.0-arm64-v8a.apk"
-    )
+    # Step 5: Verify Bundled APKs
+    print_step(5, "Verifying Bundled Mod APK Packages")
+    repo_dir = os.path.dirname(os.path.abspath(__file__))
+    apks_dir = os.path.join(repo_dir, "apks")
+    qb_apk = os.path.join(apks_dir, "olaballs-1.0.0-lite-release.apk")
+    sq_apk = os.path.join(apks_dir, "olamusicmod-release.apk")
+
+    if not os.path.isfile(qb_apk):
+        print(f"[!] Error: Missing APK at {qb_apk}")
+        sys.exit(1)
+    if not os.path.isfile(sq_apk):
+        print(f"[!] Error: Missing APK at {sq_apk}")
+        sys.exit(1)
+
+    print(f"    [+] Found: {os.path.basename(qb_apk)} ({os.path.getsize(qb_apk)/1024/1024:.2f} MB)")
+    print(f"    [+] Found: {os.path.basename(sq_apk)} ({os.path.getsize(sq_apk)/1024/1024:.2f} MB)")
 
     # Step 6: Install & Configure
-    print_step(6, "Installing Apps & Granting Permissions")
+    print_step(6, "Installing Modded Apps & Granting Permissions")
     install_and_grant(device, adb_exe, qb_apk, sq_apk)
 
     # Completion Banner & User Guide
     print("\n" + "=" * 72)
-    print("         CONGRATULATIONS! ALL APPS INSTALLED SUCCESSFULLY!       ")
+    print("         CONGRATULATIONS! ALL MODS INSTALLED SUCCESSFULLY!       ")
     print("=" * 72)
-    print("\nQuick Ball settings is now OPEN on your Ola Scooter screen.")
-    print("\n>>> FINAL 1-MINUTE QUICK SETUP ON YOUR SCOOTER DISPLAY:")
-    print("1. Turn ON the main toggle switch at the top.")
-    print("2. Tap 'Select shortcuts' (or 'Shortcuts').")
-    print("3. REMOVE the default shortcuts you don't need.")
-    print("4. ADD these essential shortcuts:")
-    print("     [1] Back       -> Allows you to go back anywhere")
-    print("     [2] Home       -> Returns to Scooter Dash / Speedometer")
-    print("     [3] Settings   -> Opens Android Settings directly")
-    print("     [4] Square     -> Tap 'App' and choose Square for Music!")
-    print("5. Position the floating ball anywhere along the screen edge.")
-    print("\nThat's it! Now you have full navigation and music on your Ola!")
+    print("\n[+] Scooter display is now back on your Ola Home Dashboard.")
+    print("[+] Ola Balls navigation overlay is active and ready to use!")
+    print("\n>>> HOW TO USE YOUR NEW MODS:")
+    print("  Tap the floating ball on your screen anytime to access:")
+    print("    * Back          -> Instant Back button inside any app")
+    print("    * Home          -> Instant return to Ola Speedometer Dashboard")
+    print("    * Settings      -> Direct access to Android Settings (Wi-Fi, Bluetooth, etc.)")
+    print("    * Ola Music Mod -> Ad-free streaming & offline music playback")
+    print("\nNo manual configuration required - everything is ready to enjoy!")
     print("=" * 72)
 
 if __name__ == "__main__":
     main()
-
