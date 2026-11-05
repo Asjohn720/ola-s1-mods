@@ -1,0 +1,372 @@
+#!/usr/bin/env python3
+"""
+Ola S1 Quick Mod & Setup Tool
+Automates:
+  1. Finding Ola scooter IP over local Wi-Fi
+  2. Keeping scooter awake via Ola Diagnostic App
+  3. Unlocking ADB access (safe, reversible RAM bind-mount)
+  4. Fetching QuickBall and Square (Music) from GitHub
+  5. Installing APKs & granting required permissions
+  6. Launching QuickBall for easy floating navigation
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.request
+
+try:
+    import grpc
+    import ola
+except ImportError:
+    print("[!] Missing dependencies. Installing grpcio...")
+    subprocess.run([sys.executable, "-m", "pip", "install", "grpcio>=1.50.0"], check=True)
+    import grpc
+    import ola
+
+BANNER = r"""
+========================================================================
+     ___  _          ____  _     ___        _      _     ____       _               
+    / _ \| | __ _   / ___|/ |   / _ \ _   _(_) ___| | __/ ___|  ___| |_ _   _ _ __  
+   | | | | |/ _` |  \___ \| |  | | | | | | | |/ __| |/ /\___ \ / _ \ __| | | | '_ \ 
+   | |_| | | (_| |   ___) | |  | |_| | |_| | | (__|   <  ___) |  __/ |_| |_| | |_) |
+    \___/|_|\__,_|  |____/|_|   \__\_\\__,_|_|\___|_|\_\|____/ \___|\__|\__,_| .__/ 
+                                                                              |_|    
+               Automated Floating Navigation & Music Installer
+========================================================================
+"""
+
+def print_step(num: int, title: str):
+    print(f"\n[{num}/6] {title}")
+    print("-" * 60)
+
+def find_adb() -> str:
+    """Finds adb executable path on the system."""
+    found = shutil.which("adb")
+    if found:
+        return found
+    
+    # Common Android SDK locations
+    candidates = [
+        os.path.expandvars(r"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe"),
+        r"C:\platform-tools\adb.exe",
+        r"C:\Program Files\platform-tools\adb.exe",
+        r"C:\Program Files\DroidCam\Client\data\obs-plugins\droidcam-obs\adb\adb.exe",
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return ""
+
+def test_tcp_port6(ip: str, port: int, scope: int | None, timeout: float = 0.8) -> bool:
+    """Tests if an IPv6 TCP port is open."""
+    try:
+        s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        scope_id = scope if scope is not None else 0
+        s.connect((ip, port, 0, scope_id))
+        s.close()
+        return True
+    except Exception:
+        return False
+
+def scan_for_scooter() -> tuple[str, int] | None:
+    """Pings multicast and scans IPv6 neighbors for open port 50005."""
+    print("[*] Pinging local IPv6 multicast to discover network devices...")
+    
+    # Get active interfaces
+    ps_cmd = 'Get-NetAdapter | Where-Object { $_.Status -eq "Up" } | Select-Object -ExpandProperty InterfaceIndex'
+    try:
+        proc = subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True)
+        indices = [int(x.strip()) for x in proc.stdout.splitlines() if x.strip().isdigit()]
+    except Exception:
+        indices = []
+
+    for idx in indices:
+        subprocess.run(f"ping -6 -n 1 -w 300 ff02::1%{idx}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(0.5)
+
+    print("[*] Scanning IPv6 neighbor table for Ola Head Unit (Port 50005)...")
+    try:
+        out = subprocess.check_output("netsh interface ipv6 show neighbors", text=True, stderr=subprocess.DEVNULL)
+    except Exception:
+        out = ""
+
+    current_idx = None
+    candidates = []
+    for line in out.splitlines():
+        m_if = re.match(r"Interface\s+(\d+):", line)
+        if m_if:
+            current_idx = int(m_if.group(1))
+        elif current_idx and line.strip().startswith("fe80:"):
+            parts = line.split()
+            if len(parts) >= 3 and parts[2].lower() != "unreachable":
+                candidates.append((parts[0], current_idx))
+
+    for ip, scope in candidates:
+        print(f"    Checking {ip}%{scope} ...", end="", flush=True)
+        if test_tcp_port6(ip, 50005, scope):
+            print(" [OPEN] -> Found Ola Scooter!")
+            return ip, scope
+        else:
+            print(" [closed]")
+
+    return None
+
+def open_diag_and_wake(channel):
+    """Wakes the screen and opens diagnostic app to prevent sleep."""
+    print("[*] Sending wake command and setting stay-on...")
+    ola.run(channel, "svc power stayon true", quiet=True)
+    ola.run(channel, "input keyevent 224", quiet=True)
+    time.sleep(0.5)
+
+    print("[*] Launching Ola Diagnostic App (com.ola.mfgapp)...")
+    ola.run(channel, "am start -n com.ola.mfgapp/.MainActivity", quiet=True)
+    print("    >> Note: While the Diagnostic App is active, Ola's internal")
+    print("       power manager will NOT sleep or lock during setup!")
+    time.sleep(1.0)
+
+def unlock_adb(channel, ipv6: str, scope: int | None, adb_exe: str) -> str:
+    """Safely unlocks ADB via RAM bind mount without flashing partitions."""
+    print("[*] Preparing ADB key...")
+    adb_key_dir = os.path.expanduser("~/.android")
+    adb_pub = os.path.join(adb_key_dir, "adbkey.pub")
+    if not os.path.exists(adb_pub):
+        print("    Generating fresh ADB keypair on PC...")
+        os.makedirs(adb_key_dir, exist_ok=True)
+        subprocess.run([adb_exe, "keygen", os.path.join(adb_key_dir, "adbkey")], check=True, stdout=subprocess.DEVNULL)
+
+    print("    Uploading PC public key to scooter...")
+    ola.push(channel, adb_pub, "/data/local/tmp/adb_keys_mine")
+    ola.run(channel, "chmod 644 /data/local/tmp/adb_keys_mine", quiet=True)
+
+    print("    Setting scootermode=serv...")
+    ola.run(channel, "setprop persist.ola.security.scootermode serv", quiet=True)
+
+    bind_script = """#!/system/bin/sh
+if [ -f /data/misc/adb/adbkeymoveos3_pub_prod ]; then
+    T=/data/misc/adb/adbkeymoveos3_pub_prod
+elif [ -f /data/misc/adb/adb_keys ]; then
+    T=/data/misc/adb/adb_keys
+else
+    T=/adbkeymoveos3_pub_prod
+fi
+mount | grep -q " $T " && umount "$T"
+mount --bind /data/local/tmp/adb_keys_mine "$T" || exit 1
+echo "bound $T"
+"""
+    tmp_path = os.path.join(tempfile.gettempdir(), "ola_bind_key.sh")
+    with open(tmp_path, "wb") as f:
+        f.write(bind_script.replace("\r\n", "\n").encode("ascii"))
+
+    ola.push(channel, tmp_path, "/data/local/tmp/bind_key.sh")
+    ola.run(channel, "chmod 755 /data/local/tmp/bind_key.sh", quiet=True)
+    ola.run(channel, "sh /data/local/tmp/bind_key.sh", quiet=True)
+    time.sleep(1.0)
+
+    device = f"[{ipv6}%{scope}]:5555" if scope else f"[{ipv6}]:5555"
+    print(f"[*] Connecting ADB to {device}...")
+    subprocess.run([adb_exe, "connect", device], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(1.0)
+    
+    # Verify state
+    res = subprocess.run([adb_exe, "-s", device, "get-state"], capture_output=True, text=True)
+    if "device" not in res.stdout:
+        subprocess.run([adb_exe, "connect", device], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1.0)
+    print("    [+] ADB connected successfully as 'device'!")
+    return device
+
+def fetch_apk(repo: str, filter_fn, out_filename: str, fallback_url: str) -> str:
+    """Downloads APK from GitHub releases or uses local cache."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    downloads_dir = os.path.join(script_dir, "downloads")
+    os.makedirs(downloads_dir, exist_ok=True)
+    dest_path = os.path.join(downloads_dir, out_filename)
+
+    if os.path.exists(dest_path) and os.path.getsize(dest_path) > 200 * 1024:
+        print(f"    Found existing {out_filename} ({os.path.getsize(dest_path)/1024/1024:.2f} MB), ready.")
+        return dest_path
+
+    print(f"    Checking GitHub release for {repo}...")
+    url = None
+    try:
+        req = urllib.request.Request(
+            f"https://api.github.com/repos/{repo}/releases/latest",
+            headers={"User-Agent": "OlaSetup/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode())
+            for asset in data.get("assets", []):
+                name = asset.get("name", "")
+                if filter_fn(name):
+                    url = asset.get("browser_download_url")
+                    print(f"    Found release asset: {name}")
+                    break
+    except Exception as e:
+        print(f"    Notice: GitHub API query ({e}). Using direct fallback URL.")
+
+    if not url:
+        url = fallback_url
+
+    print(f"    Downloading {out_filename} from {url} ...")
+    def progress(count, block_size, total_size):
+        done = count * block_size
+        if total_size > 0:
+            pct = min(100, done * 100 / total_size)
+            print(f"\r      Downloaded: {done/1024/1024:.1f}/{total_size/1024/1024:.1f} MB ({pct:.1f}%)", end="", flush=True)
+        else:
+            print(f"\r      Downloaded: {done/1024/1024:.1f} MB", end="", flush=True)
+
+    urllib.request.urlretrieve(url, dest_path, reporthook=progress)
+    print(f"\n    [+] Saved {out_filename} ({os.path.getsize(dest_path)/1024/1024:.2f} MB)")
+    return dest_path
+
+def install_and_grant(device: str, adb_exe: str, qb_apk: str, sq_apk: str):
+    """Installs APKs and grants QuickBall all necessary Android permissions."""
+    def safe_install(apk_path: str, app_name: str):
+        print(f"[*] Installing {app_name}...")
+        res = subprocess.run([adb_exe, "-s", device, "install", "-r", "-d", apk_path], capture_output=True, text=True)
+        combined = (res.stdout + " " + res.stderr).strip()
+        if "Success" in combined:
+            print(f"    [+] {app_name} installed successfully.")
+        elif "ALREADY_EXISTS" in combined or "signatures do not match" in combined:
+            print(f"    [+] {app_name} is already installed.")
+        else:
+            print(f"    [*] Install status: {combined or 'Done'}")
+
+    safe_install(qb_apk, "Quick Ball navigation app")
+    safe_install(sq_apk, "Square music player")
+
+    qb_pkg = "io.github.chayanforyou.quickball"
+    qb_svc = f"{qb_pkg}/io.github.chayanforyou.quickball.core.QuickBallService"
+
+    print("[*] Granting special permissions to Quick Ball via ADB...")
+    # 1. Overlay (floating window)
+    subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", qb_pkg, "SYSTEM_ALERT_WINDOW", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # 2. Write Settings
+    subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", qb_pkg, "WRITE_SETTINGS", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # 3. Accessibility Service (provides hardware-like Back, Home, Recents functions)
+    subprocess.run([adb_exe, "-s", device, "shell", "settings", "put", "secure", "enabled_accessibility_services", qb_svc], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run([adb_exe, "-s", device, "shell", "settings", "put", "secure", "accessibility_enabled", "1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print("    [+] SYSTEM_ALERT_WINDOW granted.")
+    print("    [+] WRITE_SETTINGS granted.")
+    print("    [+] Accessibility Service enabled.")
+
+    print("[*] Launching Quick Ball configuration activity...")
+    subprocess.run([adb_exe, "-s", device, "shell", "am", "start", "-n", f"{qb_pkg}/.ui.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def main():
+    print(BANNER)
+
+    parser = argparse.ArgumentParser(description="Ola S1 Quick Mod & Setup Tool")
+    parser.add_argument("--ipv6", help="Scooter IPv6 address (e.g. fe80::ea8d:a6ff:fea2:faf0)")
+    parser.add_argument("--scope", type=int, help="Interface scope ID (e.g. 22)")
+    parser.add_argument("--port", type=int, default=50005, help="Ola gRPC port (default 50005)")
+    args = parser.parse_args()
+
+    # Step 1: Check ADB
+    print_step(1, "Verifying Tools & Environment")
+    adb_exe = find_adb()
+    if not adb_exe:
+        print("[!] ERROR: 'adb' was not found on your system.")
+        print("    Please install Android Platform Tools or add adb.exe to your PATH.")
+        print("    Download from: https://developer.android.com/tools/releases/platform-tools")
+        sys.exit(1)
+    print(f"[+] ADB found: {adb_exe}")
+
+    # Step 2: Locate Scooter
+    print_step(2, "Connecting to Ola Scooter on Wi-Fi")
+    ipv6 = args.ipv6
+    scope = args.scope
+
+    if not ipv6:
+        while True:
+            found = scan_for_scooter()
+            if found:
+                ipv6, scope = found
+                print(f"[+] Discovered scooter at: {ipv6} (Scope {scope})")
+                break
+            else:
+                print("\n[!] Could not automatically detect scooter on Wi-Fi.")
+                print("    Please ensure:")
+                print("    1. Your PC and Scooter are connected to the SAME Wi-Fi.")
+                print("    2. The scooter screen is AWAKE (press power button or tap display).")
+                print("\nOptions:")
+                print("  [1] Try scanning again")
+                print("  [2] Enter Scooter IPv6 address manually")
+                print("  [3] Exit")
+                choice = input("\nEnter choice [1-3] (default 1): ").strip()
+                if choice == "2":
+                    ipv6 = input("Enter Scooter IPv6 (e.g. fe80::ea8d:a6ff:fea2:faf0): ").strip()
+                    scope_str = input("Enter Interface Scope ID (e.g. 22): ").strip()
+                    scope = int(scope_str) if scope_str else None
+                    break
+                elif choice == "3":
+                    sys.exit(0)
+
+    target = ola.build_target(ipv6, args.port, scope)
+    print(f"[*] Connecting to Ola daemon at {target} ...")
+    try:
+        channel = ola.connect(target, wait=6.0)
+    except Exception as e:
+        print(f"[!] Failed to connect to scooter at {target}: {e}")
+        print("    Ensure scooter is awake and Wi-Fi is active.")
+        sys.exit(1)
+
+    # Step 3: Prevent Sleep & Wake Screen
+    print_step(3, "Waking Screen & Launching Diagnostic App")
+    open_diag_and_wake(channel)
+
+    # Step 4: Unlock ADB
+    print_step(4, "Unlocking ADB Access")
+    device = unlock_adb(channel, ipv6, scope, adb_exe)
+
+    # Step 5: Fetch APKs
+    print_step(5, "Fetching Quick Ball & Square Apps")
+    qb_apk = fetch_apk(
+        repo="chayanforyou/QuickBall",
+        filter_fn=lambda n: n.endswith(".apk") and "foss" in n.lower(),
+        out_filename="quickball.apk",
+        fallback_url="https://github.com/chayanforyou/QuickBall/releases/download/v6.1.0/quick-ball-6.1.0-foss-release.apk"
+    )
+    sq_apk = fetch_apk(
+        repo="Lelonio/Square",
+        filter_fn=lambda n: n.endswith(".apk") and ("arm64" in n.lower() or "universal" in n.lower()),
+        out_filename="square.apk",
+        fallback_url="https://github.com/Lelonio/Square/releases/download/v2.8.0/square-2.8.0-arm64-v8a.apk"
+    )
+
+    # Step 6: Install & Configure
+    print_step(6, "Installing Apps & Granting Permissions")
+    install_and_grant(device, adb_exe, qb_apk, sq_apk)
+
+    # Completion Banner & User Guide
+    print("\n" + "=" * 72)
+    print("         CONGRATULATIONS! ALL APPS INSTALLED SUCCESSFULLY!       ")
+    print("=" * 72)
+    print("\nQuick Ball settings is now OPEN on your Ola Scooter screen.")
+    print("\n>>> FINAL 1-MINUTE QUICK SETUP ON YOUR SCOOTER DISPLAY:")
+    print("1. Turn ON the main toggle switch at the top.")
+    print("2. Tap 'Select shortcuts' (or 'Shortcuts').")
+    print("3. REMOVE the default shortcuts you don't need.")
+    print("4. ADD these essential shortcuts:")
+    print("     [1] Back       -> Allows you to go back anywhere")
+    print("     [2] Home       -> Returns to Scooter Dash / Speedometer")
+    print("     [3] Settings   -> Opens Android Settings directly")
+    print("     [4] Square     -> Tap 'App' and choose Square for Music!")
+    print("5. Position the floating ball anywhere along the screen edge.")
+    print("\nThat's it! Now you have full navigation and music on your Ola!")
+    print("=" * 72)
+
+if __name__ == "__main__":
+    main()
+

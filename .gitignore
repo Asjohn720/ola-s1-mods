@@ -1,0 +1,46 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/*.apk
+downloads/*.zip
+*.apk
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Repository reference / benchmark template
+example for repo prepare/
+
+# Android & ADB local keys
+.android/
+*.key
+*.pub
+/data/local/tmp/
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary and log files
+*.log
+*.tmp

@@ -1,0 +1,62 @@
+MIT License
+
+Copyright (c) 2026 Anand (@Asjohn720) and Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+DISCLAIMER & RESEARCH ETHICS
+================================================================================
+
+1. Purpose and Scope:
+   This project is an independent academic, educational, and interoperability
+   research toolkit created to study and improve usability on consumer-owned
+   Ola S1 electric vehicles (specifically the Android-based infotainment head unit).
+
+2. Lawful Interoperability & Hardware Ownership:
+   All research and development activities were conducted strictly on personally
+   owned, fully paid consumer hardware. These activities are carried out under the
+   lawful doctrine of interoperability research and hardware freedom, specifically
+   Section 52(1)(ab) of the Indian Copyright Act, 1957 (which explicitly permits
+   the adaptation and study of computer programs to achieve interoperability with
+   other programs), and international Fair Use doctrines.
+
+3. Zero Flash Modification & Vehicle Safety Integrity:
+   - This toolkit operates strictly on the non-critical Android Infotainment
+     Head Unit (HMI) subsystem.
+   - At NO point does this software access, modify, flash, or interfere with
+     critical vehicle powertrain controllers, Motor Controller Units (MCU),
+     Battery Management Systems (BMS), Electronic Braking Systems (EBS),
+     accelerator/throttle controls, or safety sensors.
+   - The ADB authorization mechanism operates entirely in volatile system RAM
+     via a temporary bind-mount (`mount --bind`). Zero physical partitions or
+     read-only flash sectors are modified. A standard vehicle restart immediately
+     restores the system to factory pristine state.
+
+4. Intellectual Property & Trademarks:
+   All trademarks, service marks, trade names, product names, and logos appearing
+   in this repository (including "Ola", "Ola Electric", "MoveOS", and "Android")
+   are the property of their respective owners. Their use here is purely nominative
+   and descriptive to identify compatible hardware. No affiliation, endorsement,
+   or sponsorship by Ola Electric Mobility Ltd. is claimed or implied.
+
+5. Open Source Distribution:
+   No proprietary vendor code, copyrighted firmware blobs, or private encryption
+   keys are distributed in this repository. All code is independently developed
+   open-source software communicating over standard network RPC protocols.
