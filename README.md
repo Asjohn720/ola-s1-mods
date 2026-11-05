@@ -17,10 +17,10 @@ Zero soldering, zero flash partition writes, and 100% reversible with a single s
 
 Watch the modded infotainment interface and floating touch navigation running live on an **Ola S1 Pro (Gen 2)** with MoveOS:
 
-https://github.com/user-attachments/assets/OLA%20S1%20PRO%20GEN%202%20MODDED.mp4
+[▶️ **Click here to watch / download the Demonstration Video (`demo.mp4`)**](demo.mp4)
 
-<video src="OLA%20S1%20PRO%20GEN%202%20MODDED.mp4" controls="controls" width="100%" style="max-height: 520px;">
-  <p>Your browser does not support the video tag. You can <a href="OLA%20S1%20PRO%20GEN%202%20MODDED.mp4">download or view the video directly here</a>.</p>
+<video src="demo.mp4" controls="controls" width="100%" style="max-height: 520px;">
+  <p>Your browser does not support the video tag. You can <a href="demo.mp4">download or view the video directly here</a>.</p>
 </video>
 
 > [!NOTE]
