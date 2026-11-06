@@ -65,13 +65,26 @@ Watch the modded infotainment interface and floating touch navigation running li
 
 ## 📱 Supported Vehicles & Compatibility Matrix
 
-| Vehicle Model | Platform / Gen | Head Unit SoC | MoveOS Version | Status |
+> [!NOTE]
+> **Display Requirement:** S1Mods requires an **Android-based 7" touchscreen head unit** with Wi-Fi connectivity. Only Ola models equipped with the 7-inch Android infotainment display are compatible.
+
+### ✅ Supported Vehicles (7" Android Touchscreen Models)
+
+| Vehicle Model | Display Screen | Head Unit SoC | MoveOS Version | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Ola S1 Pro (Gen 2)** | 7" Touch Display | Qualcomm Snapdragon 625 (MSM8953, `arm64-v8a`) | MoveOS 3, 4, 5 | ✅ **100% Tested & Verified** |
-| **Ola S1 Pro (Gen 1)** | 7" 720p Touch Display | Qualcomm Snapdragon 212 (APQ8009) | MoveOS 2, 3, 4, 5 | 🟢 **Supported (Untested)** |
-| **Ola S1 (Gen 1)** | 7" 720p Touch Display | Qualcomm Snapdragon 212 (APQ8009) | MoveOS 2, 3, 4, 5 | 🟢 **Supported (Untested)** |
-| **Ola S1 Air** | 7" Touch Display | Qualcomm / MediaTek Platform | MoveOS 3, 4, 5 | 🟢 **Supported (Untested)** |
-| **Ola S1 X+** | 5" / 7" Display | Qualcomm / MediaTek Platform | MoveOS 4, 5 | 🟢 **Supported (Untested)** |
+| **Ola S1 Pro (Gen 2)** | 7.0" TFT Touchscreen (800x480 / 720p) | Qualcomm Snapdragon 625 (`msm8953`, 3GB RAM) | MoveOS 3, 4, 5 | ✅ **100% Tested & Verified** |
+| **Ola S1 Pro (Gen 1)** | 7.0" TFT 720p Touchscreen (1280x768) | Qualcomm Snapdragon 212 (`APQ8009`, 3GB RAM) | MoveOS 2, 3, 4, 5 | 🟢 **Supported (Compatible)** |
+| **Ola S1 (Gen 1)** | 7.0" TFT 720p Touchscreen (1280x768) | Qualcomm Snapdragon 212 (`APQ8009`, 3GB RAM) | MoveOS 2, 3, 4, 5 | 🟢 **Supported (Compatible)** |
+| **Ola S1 Air** | 7.0" TFT Touchscreen (800x480) | Octa-Core Processor (3GB RAM) | MoveOS 3, 4, 5 | 🟢 **Supported (Compatible)** |
+
+### ❌ Incompatible Vehicles (Segmented LCD / Non-Android Models)
+
+The budget **Ola S1 X** series uses a conventional non-touch digital instrument cluster running on a basic microcontroller (MCU/RTOS) without an Android head unit, Wi-Fi hardware, or ADB capability:
+
+| Incompatible Model | Display Hardware | Reason for Incompatibility |
+| :--- | :--- | :--- |
+| **Ola S1 X (2 kWh / 3 kWh / 4 kWh)** | 4.3" / 3.5" Segmented LCD (Non-Touch) | Microcontroller-based instrument cluster. No Android OS, no Wi-Fi, no APK support. |
+| **Ola S1 X+** | 5.0" Segmented LCD (Non-Touch) | Non-touch monochrome LCD panel operated via handlebar buttons. No Android head unit. |
 
 ---
 
