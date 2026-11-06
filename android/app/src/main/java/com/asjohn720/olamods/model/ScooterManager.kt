@@ -1,0 +1,296 @@
+package com.asjohn720.olamods.model
+
+import android.content.Context
+import android.graphics.Bitmap
+import com.asjohn720.olamods.adb.AdbManager
+import com.asjohn720.olamods.discovery.DiscoveredScooter
+import com.asjohn720.olamods.discovery.NetworkScanner
+import com.asjohn720.olamods.grpc.OlaGrpcClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+
+enum class SetupStep(val stepNum: Int, val title: String) {
+    VERIFY_CONNECTION(1, "Detect Scooter & Connect"),
+    PRE_CHECK_AND_WAKE(2, "Display Wake & Pre-Check"),
+    UNLOCK_ADB(3, "In-Memory ADB Unlock"),
+    INSTALL_APKS(4, "Install Bundled Mod APKs"),
+    GRANT_PERMISSIONS(5, "Grant System Permissions"),
+    FINALIZE_HOME(6, "Initialize & Return to Home")
+}
+
+data class ScooterInfo(
+    val uid: String = "",
+    val androidVersion: String = "",
+    val buildId: String = "",
+    val model: String = "",
+    val scooterMode: String = ""
+)
+
+class ScooterManager(private val context: Context) {
+
+    private val adbManager = AdbManager(context)
+    private var grpcClient: OlaGrpcClient? = null
+
+    val scooterIp = MutableStateFlow("")
+    val scooterScope = MutableStateFlow<Int?>(null)
+    val isConnected = MutableStateFlow(false)
+
+    val currentStep = MutableStateFlow<SetupStep?>(null)
+    val isSetupRunning = MutableStateFlow(false)
+    val setupSuccess = MutableStateFlow(false)
+    val errorMessage = MutableStateFlow<String?>(null)
+
+    private val _logs = MutableStateFlow<List<String>>(emptyList())
+    val logs = _logs.asStateFlow()
+
+    fun log(msg: String) {
+        _logs.value = _logs.value + msg
+    }
+
+    fun clearLogs() {
+        _logs.value = emptyList()
+    }
+
+    /**
+     * Initializes or updates the active gRPC connection.
+     */
+    suspend fun connect(ip: String = scooterIp.value, scope: Int? = scooterScope.value) = withContext(Dispatchers.IO) {
+        log("[*] Connecting to scooter at $ip (Scope: ${scope ?: "auto"}) ...")
+        grpcClient?.close()
+        val client = OlaGrpcClient(host = ip, port = 50005, scope = scope)
+        client.connect(timeoutSeconds = 6L)
+        grpcClient = client
+        scooterIp.value = ip
+        scooterScope.value = scope
+        isConnected.value = true
+        log("[+] Successfully connected to Ola Root Diagnostics daemon (Port 50005)!")
+    }
+
+    /**
+     * Auto-discovers the scooter on the local Wi-Fi / Hotspot network.
+     */
+    suspend fun autoDiscover(): DiscoveredScooter? = withContext(Dispatchers.IO) {
+        log("[*] Scanning network for Ola Scooter...")
+        val discovered = NetworkScanner.scanForScooter(context)
+        if (discovered != null) {
+            scooterIp.value = discovered.ip
+            scooterScope.value = discovered.scope
+            isConnected.value = true
+            log("[+] Discovered Ola Scooter: ${discovered.ip} (Scope: ${discovered.scope ?: "none"}, Source: ${discovered.source})")
+        } else {
+            log("[!] Could not auto-detect scooter on port 50005.")
+            log("    Tip: Check 'Connected Devices' in your Hotspot settings and enter the MAC or IP.")
+        }
+        discovered
+    }
+
+    /**
+     * Converts a MAC address from Hotspot settings to IPv6 link-local address.
+     */
+    fun setFromMac(mac: String): Boolean {
+        val ipv6 = NetworkScanner.macToIpv6(mac)
+        if (ipv6 != null) {
+            scooterIp.value = ipv6
+            log("[+] Calculated IPv6 from MAC ($mac) -> $ipv6")
+            return true
+        }
+        return false
+    }
+
+    /**
+     * Quick test to verify if port 50005 is reachable.
+     */
+    suspend fun testConnection(ip: String = scooterIp.value, scope: Int? = scooterScope.value): Boolean = withContext(Dispatchers.IO) {
+        log("[*] Testing port 50005 on $ip...")
+        val open = NetworkScanner.testPort(ip, 50005, scope, 1000)
+        isConnected.value = open
+        if (open) {
+            log("[+] Port 50005 is OPEN and responsive!")
+        } else {
+            log("[!] Port 50005 is unreachable on $ip. Ensure scooter screen is awake!")
+        }
+        open
+    }
+
+    /**
+     * Executes the complete 1-Click Automated Setup Wizard.
+     */
+    suspend fun runFullSetup() = withContext(Dispatchers.IO) {
+        isSetupRunning.value = true
+        setupSuccess.value = false
+        errorMessage.value = null
+        clearLogs()
+
+        log("==================================================")
+        log("      OLA S1 ONE-CLICK AUTOMATED SETUP WIZARD     ")
+        log("==================================================")
+
+        try {
+            // Step 1: Verify Connection
+            currentStep.value = SetupStep.VERIFY_CONNECTION
+            log("\n[1/6] Verifying connection to scooter...")
+            if (scooterIp.value.isBlank()) {
+                log("[*] No scooter address entered. Attempting auto-discovery...")
+                val found = autoDiscover()
+                if (found == null || scooterIp.value.isBlank()) {
+                    throw IllegalStateException("No scooter detected. Please tap 'Scan' or edit to enter your scooter's IP/MAC address.")
+                }
+            }
+            if (grpcClient == null || !isConnected.value) {
+                connect()
+            }
+            log("[+] gRPC link confirmed alive.")
+
+            // Step 2: Wake & Pre-Check
+            currentStep.value = SetupStep.PRE_CHECK_AND_WAKE
+            log("\n[2/6] Waking display...")
+            grpcClient?.wakeScreen()
+            log("[+] Screen awake. Ensure scooter side stand is UP and screen stays active.")
+
+            // Step 3: Unlock ADB (In-Memory RAM Bind Mount)
+            currentStep.value = SetupStep.UNLOCK_ADB
+            log("\n[3/6] Authorizing ADB key via in-memory RAM mount...")
+            val (_, pubKey) = adbManager.getOrCreateAdbKeyPair()
+            val unlocked = grpcClient?.unlockAdb(pubKey) ?: false
+            if (!unlocked) {
+                log("[*] Warning: bind mount script returned non-zero, trying ADB connect...")
+            }
+            log("[*] Connecting Kotlin ADB client over TCP Port 5555...")
+            adbManager.connect(scooterIp.value, 5555)
+            log("[+] ADB connected successfully as 'device'!")
+
+            // Step 4: Extract and Install Bundled Mod APKs
+            currentStep.value = SetupStep.INSTALL_APKS
+            log("\n[4/6] Installing bundled Mod APKs from internal assets...")
+            installAssetApk("balls-1.0.0-lite-release.apk", "Balls Navigation Overlay")
+            installAssetApk("musicmod-release.apk", "Music Mod Player")
+
+            // Step 5: Grant Permissions
+            currentStep.value = SetupStep.GRANT_PERMISSIONS
+            log("\n[5/6] Granting Overlay, Settings & Accessibility permissions...")
+            adbManager.grantBallPermissions()
+            log("[+] SYSTEM_ALERT_WINDOW granted.")
+            log("[+] WRITE_SETTINGS granted.")
+            log("[+] Accessibility Service enabled.")
+
+            // Step 6: Finalize & Return to Home
+            currentStep.value = SetupStep.FINALIZE_HOME
+            log("\n[6/6] Returning scooter to Dashboard Home...")
+            openOlaHome()
+
+            log("\n==================================================")
+            log("     CONGRATULATIONS! ALL MODS INSTALLED!         ")
+            log("==================================================")
+            log("Balls floating navigation is now active on screen.")
+            setupSuccess.value = true
+
+        } catch (e: Exception) {
+            val err = e.localizedMessage ?: e.toString()
+            log("\n[!] Setup failed: $err")
+            errorMessage.value = err
+            setupSuccess.value = false
+        } finally {
+            isSetupRunning.value = false
+        }
+    }
+
+    /**
+     * Extracts an APK bundled in assets to temporary storage and installs it via ADB.
+     */
+    private suspend fun installAssetApk(assetFileName: String, friendlyName: String) = withContext(Dispatchers.IO) {
+        log("[*] Preparing $friendlyName...")
+        val tempFile = File(context.cacheDir, assetFileName)
+        context.assets.open(assetFileName).use { input ->
+            FileOutputStream(tempFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+        log("    Installing ${tempFile.name} (${tempFile.length() / (1024 * 1024)} MB)...")
+        val result = adbManager.installApk(tempFile)
+        tempFile.delete()
+        log("    [+] $friendlyName installed: $result")
+    }
+
+    /**
+     * Installs any user-selected APK file from phone storage.
+     */
+    suspend fun installCustomApk(apkFile: File): String = withContext(Dispatchers.IO) {
+        log("[*] Installing custom APK: ${apkFile.name} (${apkFile.length() / (1024 * 1024)} MB)...")
+        if (grpcClient == null || !isConnected.value) {
+            connect()
+        }
+        val (_, pubKey) = adbManager.getOrCreateAdbKeyPair()
+        grpcClient?.unlockAdb(pubKey)
+        adbManager.connect(scooterIp.value, 5555)
+        val res = adbManager.installApk(apkFile)
+        log("[+] Custom APK installed: $res")
+        res
+    }
+
+    /**
+     * Launches specific Android Settings screen on the scooter.
+     */
+    suspend fun openSettings(action: String) = withContext(Dispatchers.IO) {
+        log("[*] Launching $action...")
+        grpcClient?.shell("am start -a $action", 15L)
+    }
+
+    /**
+     * Returns scooter to Ola Speedometer Home dashboard.
+     */
+    suspend fun openOlaHome() = withContext(Dispatchers.IO) {
+        log("[*] Bringing Ola Home Dashboard to front...")
+        grpcClient?.shell("am start -n com.olaelectric.hmiclient/.MainActivity", 15L)
+        grpcClient?.shell("input keyevent 3", 10L)
+    }
+
+    /**
+     * Wakes the screen safely without modifying persistent power stay-on.
+     */
+    suspend fun wakeScreen() = withContext(Dispatchers.IO) {
+        log("[*] Waking scooter display...")
+        grpcClient?.wakeScreen()
+    }
+
+    /**
+     * Captures a screenshot from the scooter.
+     */
+    suspend fun captureScreenshot(): Bitmap = withContext(Dispatchers.IO) {
+        log("[*] Capturing scooter screenshot...")
+        val client = grpcClient ?: throw IllegalStateException("Not connected to scooter")
+        client.takeScreenshot()
+    }
+
+    /**
+     * Executes arbitrary root shell command and returns output.
+     */
+    suspend fun runRootShell(command: String): String = withContext(Dispatchers.IO) {
+        val client = grpcClient ?: throw IllegalStateException("Not connected to scooter")
+        val (_, out) = client.shell(command, 30L)
+        out
+    }
+
+    /**
+     * Fetches technical specifications and system properties of the scooter.
+     */
+    suspend fun fetchScooterInfo(): ScooterInfo = withContext(Dispatchers.IO) {
+        val client = grpcClient ?: throw IllegalStateException("Not connected to scooter")
+        val uid = client.shell("id -u").second.trim()
+        val android = client.shell("getprop ro.build.version.release").second.trim()
+        val build = client.shell("getprop ro.build.display.id").second.trim()
+        val model = client.shell("getprop ro.product.model").second.trim()
+        val mode = client.shell("getprop persist.ola.security.scootermode").second.trim()
+        ScooterInfo(uid = uid, androidVersion = android, buildId = build, model = model, scooterMode = mode)
+    }
+
+    fun disconnect() {
+        grpcClient?.close()
+        adbManager.disconnect()
+        isConnected.value = false
+    }
+}
+

@@ -14,8 +14,11 @@ dist/
 downloads/*.apk
 downloads/*.zip
 *.apk
+!S1Mods*.apk
 !apks/*.apk
 !apks/
+!android/app/src/main/assets/*.apk
+!android/app/src/main/assets/
 *.img
 .env
 .venv
