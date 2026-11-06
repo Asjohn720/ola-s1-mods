@@ -1,4 +1,4 @@
-package com.asjohn720.olamods.adb
+package com.asjohn720.s1mods.adb
 
 import android.content.Context
 import dadb.AdbKeyPair
@@ -8,7 +8,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Manages ADB keypair generation and Dadb connection to the scooter over TCP Port 5555.
+ * Manages ADB keypair generation and Dadb connection to the vehicle over TCP Port 5555.
  */
 class AdbManager(private val context: Context) {
 
@@ -32,7 +32,7 @@ class AdbManager(private val context: Context) {
     }
 
     /**
-     * Connects to the scooter's ADB daemon at [host]:[port].
+     * Connects to the vehicle's ADB daemon at [host]:[port].
      */
     suspend fun connect(host: String, port: Int = 5555): Dadb = withContext(Dispatchers.IO) {
         activeDadb?.close()
@@ -54,7 +54,16 @@ class AdbManager(private val context: Context) {
     }
 
     /**
-     * Installs an APK file onto the scooter via ADB streaming install.
+     * Checks if a package is already installed on the vehicle.
+     */
+    suspend fun isPackageInstalled(packageName: String): Boolean = withContext(Dispatchers.IO) {
+        val client = activeDadb ?: return@withContext false
+        val out = client.shell("pm list packages $packageName").allOutput
+        out.contains("package:$packageName")
+    }
+
+    /**
+     * Installs an APK file onto the vehicle via ADB streaming install (-r reinstall with data kept).
      */
     suspend fun installApk(apkFile: File): String = withContext(Dispatchers.IO) {
         val client = activeDadb ?: throw IllegalStateException("ADB not connected")
@@ -97,6 +106,40 @@ class AdbManager(private val context: Context) {
         client.shell("input keyevent 3")
     }
 
+    /**
+     * Grants permissions for Android Auto (OpenHeadUnit) via ADB:
+     * - Microphone (RECORD_AUDIO)
+     * - Location (ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION)
+     * - Display over other apps (SYSTEM_ALERT_WINDOW)
+     * - Storage (READ/WRITE_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE)
+     * - System settings & Wi-Fi/Bluetooth
+     */
+    suspend fun grantAndroidAutoPermissions() = withContext(Dispatchers.IO) {
+        val client = activeDadb ?: throw IllegalStateException("ADB not connected")
+        val pkg = "com.asjohn720.androidauto"
+
+        // Overlay & Settings
+        client.shell("appops set $pkg SYSTEM_ALERT_WINDOW allow")
+        client.shell("appops set $pkg WRITE_SETTINGS allow")
+
+        // Microphone
+        client.shell("pm grant $pkg android.permission.RECORD_AUDIO")
+
+        // Location
+        client.shell("pm grant $pkg android.permission.ACCESS_FINE_LOCATION")
+        client.shell("pm grant $pkg android.permission.ACCESS_COARSE_LOCATION")
+
+        // Storage
+        client.shell("pm grant $pkg android.permission.READ_EXTERNAL_STORAGE")
+        client.shell("pm grant $pkg android.permission.WRITE_EXTERNAL_STORAGE")
+        client.shell("appops set $pkg MANAGE_EXTERNAL_STORAGE allow")
+
+        // Connectivity
+        client.shell("pm grant $pkg android.permission.NEARBY_WIFI_DEVICES")
+        client.shell("pm grant $pkg android.permission.BLUETOOTH_CONNECT")
+        client.shell("pm grant $pkg android.permission.BLUETOOTH_SCAN")
+    }
+
     fun disconnect() {
         try {
             activeDadb?.close()
@@ -104,4 +147,3 @@ class AdbManager(private val context: Context) {
         activeDadb = null
     }
 }
-

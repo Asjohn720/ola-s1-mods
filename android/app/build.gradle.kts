@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.asjohn720.olamods"
+    namespace = "com.asjohn720.s1mods"
     compileSdk {
         version = release(37) {
             minorApiLevel = 1
@@ -12,7 +12,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.asjohn720.olamods"
+        applicationId = "com.asjohn720.s1mods"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

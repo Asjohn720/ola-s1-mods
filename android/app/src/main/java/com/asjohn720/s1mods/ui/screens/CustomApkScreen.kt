@@ -1,4 +1,4 @@
-package com.asjohn720.olamods.ui.screens
+package com.asjohn720.s1mods.ui.screens
 
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -8,7 +8,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -21,8 +23,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.asjohn720.olamods.model.ScooterManager
-import com.asjohn720.olamods.ui.theme.*
+import com.asjohn720.s1mods.model.ScooterManager
+import com.asjohn720.s1mods.ui.theme.*
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
@@ -31,6 +33,7 @@ import java.io.FileOutputStream
 fun CustomApkScreen(manager: ScooterManager) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var selectedName by remember { mutableStateOf<String?>(null) }
@@ -60,6 +63,7 @@ fun CustomApkScreen(manager: ScooterManager) {
         modifier = Modifier
             .fillMaxSize()
             .background(BgDark)
+            .verticalScroll(scrollState)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -69,6 +73,43 @@ fun CustomApkScreen(manager: ScooterManager) {
             fontWeight = FontWeight.Medium,
             color = TextMuted
         )
+
+        // RAM Constraint Warning Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, StatusWarning.copy(alpha = 0.4f), RoundedCornerShape(12.dp)),
+            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = StatusWarning,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "Hardware Memory Notice",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = StatusWarning
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "The scooter head unit has very limited available free RAM (~3 GB total shared with MoveOS telemetry, safety daemons, and speedometer rendering). Do NOT install heavy applications (e.g. Chrome, Google Play Services, heavy games) as they will trigger Out-Of-Memory reboots or display lag. Use only lightweight, S1-optimized APKs.",
+                        fontSize = 11.sp,
+                        color = TextSecondary,
+                        lineHeight = 15.sp
+                    )
+                }
+            }
+        }
 
         // Select Custom APK Card
         Card(
@@ -192,7 +233,7 @@ fun CustomApkScreen(manager: ScooterManager) {
             }
         }
 
-        // Bundled APKs Overview
+        // S1 Optimized Apps Overview
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -202,16 +243,20 @@ fun CustomApkScreen(manager: ScooterManager) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Included Applications",
+                    text = "S1 Optimized Apps",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     color = TextMuted
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
-                BundledApkRow("Balls Navigation", "balls-1.0.0-lite-release.apk", "1.4 MB", "Floating navigation overlay")
+                BundledApkRow("Balls Navigation", "balls-1.0.0-lite-release.apk", "1.4 MB", "Floating navigation touch overlay")
                 Spacer(modifier = Modifier.height(8.dp))
-                BundledApkRow("Music Mod", "musicmod-release.apk", "18.3 MB", "Lightweight offline audio player")
+                BundledApkRow("Music Mod", "musicmod-release.apk", "18.3 MB", "Ad-free streaming & offline player")
+                Spacer(modifier = Modifier.height(8.dp))
+                BundledApkRow("Android Auto", "com.asjohn720.androidauto.apk", "20.9 MB", "OpenHeadUnit wireless projection")
+                Spacer(modifier = Modifier.height(8.dp))
+                BundledApkRow("Via Browser", "via-release.apk", "4.3 MB", "Ultra-lightweight web browser")
             }
         }
     }

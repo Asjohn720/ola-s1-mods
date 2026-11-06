@@ -1,4 +1,4 @@
-package com.asjohn720.olamods.ui.theme
+package com.asjohn720.s1mods.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

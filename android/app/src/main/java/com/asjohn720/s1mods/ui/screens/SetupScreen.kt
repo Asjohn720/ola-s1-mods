@@ -1,8 +1,9 @@
-package com.asjohn720.olamods.ui.screens
+package com.asjohn720.s1mods.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,10 +22,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.asjohn720.olamods.discovery.NetworkScanner
-import com.asjohn720.olamods.model.ScooterManager
-import com.asjohn720.olamods.model.SetupStep
-import com.asjohn720.olamods.ui.theme.*
+import com.asjohn720.s1mods.discovery.NetworkScanner
+import com.asjohn720.s1mods.model.ModApp
+import com.asjohn720.s1mods.model.ScooterManager
+import com.asjohn720.s1mods.model.SetupStep
+import com.asjohn720.s1mods.ui.theme.*
 import kotlinx.coroutines.launch
 
 @Composable
@@ -37,7 +39,6 @@ fun SetupScreen(manager: ScooterManager) {
     val currentStep by manager.currentStep.collectAsState()
     val isRunning by manager.isSetupRunning.collectAsState()
     val success by manager.setupSuccess.collectAsState()
-    val error by manager.errorMessage.collectAsState()
     val logs by manager.logs.collectAsState()
 
     var showEditDialog by remember { mutableStateOf(false) }
@@ -45,6 +46,9 @@ fun SetupScreen(manager: ScooterManager) {
     var tempInput by remember { mutableStateOf(scooterIp) }
     var tempScope by remember { mutableStateOf(scooterScope?.toString() ?: "") }
     var isTestingPort by remember { mutableStateOf(false) }
+
+    // App selection state for setup (all 4 checked by default)
+    var selectedApps by remember { mutableStateOf(ModApp.values().toSet()) }
 
     val listState = rememberLazyListState()
 
@@ -112,9 +116,9 @@ fun SetupScreen(manager: ScooterManager) {
                                 coroutineScope.launch {
                                     val found = manager.autoDiscover()
                                     if (found == null) {
-                                        Toast.makeText(context, "Scooter not detected. Check Hotspot connected devices or enter MAC.", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Vehicle not detected. Check Hotspot connected devices or enter MAC.", Toast.LENGTH_LONG).show()
                                     } else {
-                                        Toast.makeText(context, "Found scooter at ${found.ip}", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Found vehicle at ${found.ip}", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -146,7 +150,7 @@ fun SetupScreen(manager: ScooterManager) {
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isConnected) "gRPC Service Online (Port 50005)" else "gRPC Service Offline",
+                            text = if (isConnected) "MoveOS gRPC Online (Port 50005)" else "gRPC Service Offline",
                             fontSize = 12.sp,
                             color = if (isConnected) AccentMint else TextMuted
                         )
@@ -403,48 +407,102 @@ fun SetupScreen(manager: ScooterManager) {
         )
     }
 
-    // Pre-Flight Disclaimer & Safety Dialog
+    // Pre-Flight Safety & App Selection Dialog
     if (showPreFlightDialog) {
         AlertDialog(
             onDismissRequest = { showPreFlightDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Warning, contentDescription = null, tint = StatusWarning, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Tune, contentDescription = null, tint = AccentMint, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Pre-Flight Safety Check", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Setup Configuration", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 }
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Verify vehicle status before proceeding with the automated setup:",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Pre-flight notices
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .background(SurfaceVariantDark)
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "1. Side Stand UP: Ensure side stand is UP (stand sensor prevents vehicle sleep).",
-                            fontSize = 12.sp,
+                            text = "• Side Stand UP: Sensor keeps vehicle systems active.",
+                            fontSize = 11.sp,
                             color = TextPrimary
                         )
                         Text(
-                            text = "2. Keep Screen Active: Tap the screen periodically during mods to maintain connectivity.",
-                            fontSize = 12.sp,
+                            text = "• Keep Screen Active: Tap screen during mods to prevent sleep.",
+                            fontSize = 11.sp,
                             color = TextPrimary
                         )
                         Text(
-                            text = "3. Auto-Lock Safety: Persistent stay-on is NOT altered. Scooter auto-lock security remains active.",
-                            fontSize = 12.sp,
-                            color = TextSecondary
+                            text = "• Auto-Lock Safe: Auto-lock security is never disabled.",
+                            fontSize = 11.sp,
+                            color = AccentSky
                         )
+                    }
+
+                    Text(
+                        text = "Choose applications to install:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
+
+                    // App Selection Checkboxes (Total 4 apps)
+                    ModApp.values().forEach { app ->
+                        val isChecked = selectedApps.contains(app)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable(enabled = !app.isMandatory) {
+                                    selectedApps = if (isChecked) {
+                                        selectedApps - app
+                                    } else {
+                                        selectedApps + app
+                                    }
+                                }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { checked ->
+                                    if (!app.isMandatory) {
+                                        selectedApps = if (checked) selectedApps + app else selectedApps - app
+                                    }
+                                },
+                                enabled = !app.isMandatory,
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = AccentMint,
+                                    uncheckedColor = CardBorder,
+                                    checkmarkColor = BgDark,
+                                    disabledCheckedColor = AccentMint.copy(alpha = 0.6f)
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text(
+                                    text = app.displayName + if (app.isMandatory) " (Required)" else "",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (app.isMandatory) AccentMint else TextPrimary
+                                )
+                                Text(
+                                    text = app.description,
+                                    fontSize = 10.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                        }
                     }
                 }
             },
@@ -453,13 +511,13 @@ fun SetupScreen(manager: ScooterManager) {
                     onClick = {
                         showPreFlightDialog = false
                         coroutineScope.launch {
-                            manager.runFullSetup()
+                            manager.runFullSetup(selectedApps)
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Start Setup", fontWeight = FontWeight.Medium)
+                    Text("Start Setup (${selectedApps.size} Apps)", fontWeight = FontWeight.Medium)
                 }
             },
             dismissButton = {
