@@ -253,10 +253,6 @@ fun CustomApkScreen(manager: ScooterManager) {
                 BundledApkRow("Balls Navigation", "balls-1.0.0-lite-release.apk", "1.4 MB", "Floating navigation touch overlay")
                 Spacer(modifier = Modifier.height(8.dp))
                 BundledApkRow("Music Mod", "musicmod-release.apk", "18.3 MB", "Ad-free streaming & offline player")
-                Spacer(modifier = Modifier.height(8.dp))
-                BundledApkRow("Android Auto", "com.asjohn720.androidauto.apk", "20.9 MB", "OpenHeadUnit wireless projection")
-                Spacer(modifier = Modifier.height(8.dp))
-                BundledApkRow("Via Browser", "via-release.apk", "4.3 MB", "Ultra-lightweight web browser")
             }
         }
     }

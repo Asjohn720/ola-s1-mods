@@ -10,8 +10,6 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
 import java.io.InputStreamReader
-import java.net.DatagramPacket
-import java.net.DatagramSocket
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -24,6 +22,12 @@ data class DiscoveredScooter(
     val isPortOpen: Boolean = false,
     val interfaceName: String = "",
     val source: String = ""
+)
+
+data class PortTestResult(
+    val isOpen: Boolean,
+    val errorDetails: String? = null,
+    val timeTakenMs: Long = 0
 )
 
 object NetworkScanner {
@@ -52,11 +56,13 @@ object NetworkScanner {
     }
 
     /**
-     * Tests if TCP port [port] (default 50005) is open on [ip].
+     * Detailed TCP port probe returning elapsed time and exact exception if failed.
      */
-    fun testPort(ip: String, port: Int = 50005, scope: Int? = null, timeoutMs: Int = 700): Boolean {
+    fun testPortDetailed(ip: String, port: Int = 50005, scope: Int? = null, timeoutMs: Int = 1200): PortTestResult {
+        val start = System.currentTimeMillis()
+        var socket: Socket? = null
         return try {
-            val socket = Socket()
+            socket = Socket()
             val cleanIp = ip.split("%")[0].trim('[', ']')
             val address = if (cleanIp.contains(":") && scope != null) {
                 Inet6Address.getByAddress(null, InetAddress.getByName(cleanIp).address, scope)
@@ -64,11 +70,60 @@ object NetworkScanner {
                 InetAddress.getByName(cleanIp)
             }
             socket.connect(InetSocketAddress(address, port), timeoutMs)
-            socket.close()
-            true
-        } catch (_: Exception) {
-            false
+            val elapsed = System.currentTimeMillis() - start
+            PortTestResult(isOpen = true, timeTakenMs = elapsed)
+        } catch (e: Exception) {
+            val elapsed = System.currentTimeMillis() - start
+            val msg = "${e.javaClass.simpleName}: ${e.message ?: "Failed"}"
+            PortTestResult(isOpen = false, errorDetails = msg, timeTakenMs = elapsed)
+        } finally {
+            try { socket?.close() } catch (_: Exception) {}
         }
+    }
+
+    /**
+     * Tests if TCP port [port] (default 50005) is open on [ip].
+     */
+    fun testPort(ip: String, port: Int = 50005, scope: Int? = null, timeoutMs: Int = 800): Boolean {
+        return testPortDetailed(ip, port, scope, timeoutMs).isOpen
+    }
+
+    /**
+     * Diagnostic helper: returns a list of all active non-loopback network interfaces and their IPs.
+     */
+    fun getNetworkInterfacesInfo(): List<String> {
+        val list = mutableListOf<String>()
+        try {
+            val ifaces = NetworkInterface.getNetworkInterfaces()
+            while (ifaces.hasMoreElements()) {
+                val iface = ifaces.nextElement()
+                if (iface.isUp && !iface.isLoopback) {
+                    val ips = iface.inetAddresses.toList().map { it.hostAddress ?: "" }
+                    list.add("${iface.name} [idx:${iface.index}] -> ${ips.joinToString(", ")}")
+                }
+            }
+        } catch (e: Exception) {
+            list.add("Error listing interfaces: ${e.message}")
+        }
+        return list
+    }
+
+    /**
+     * Diagnostic helper: reads raw output of `ip neigh` kernel neighbor table.
+     */
+    fun getRawIpNeighLines(): List<String> {
+        val list = mutableListOf<String>()
+        try {
+            val process = Runtime.getRuntime().exec("ip neigh")
+            BufferedReader(InputStreamReader(process.inputStream)).useLines { lines ->
+                lines.forEach { line ->
+                    if (line.isNotBlank()) list.add(line.trim())
+                }
+            }
+        } catch (e: Exception) {
+            list.add("Error reading ip neigh: ${e.message}")
+        }
+        return list
     }
 
     /**
@@ -80,8 +135,6 @@ object NetworkScanner {
             val process = Runtime.getRuntime().exec("ip neigh")
             BufferedReader(InputStreamReader(process.inputStream)).useLines { lines ->
                 lines.forEach { line ->
-                    // Example: "192.168.43.45 dev ap0 lladdr aa:bb:cc:dd:ee:ff REACHABLE"
-                    // Example: "fe80::1234:5678:9abc:def0 dev ap0 lladdr aa:bb:cc:dd:ee:ff REACHABLE"
                     val parts = line.split("\\s+".toRegex())
                     if (parts.size >= 4) {
                         val ip = parts[0]
@@ -198,7 +251,7 @@ object NetworkScanner {
      * 2. /proc/net/arp (if accessible)
      * 3. Local IPv4 Hotspot Subnet sweep (testing port 50005)
      */
-    suspend fun scanForScooter(context: Context): DiscoveredScooter? = withContext(Dispatchers.IO) {
+    suspend fun scanForScooter(context: Context, logCallback: ((String) -> Unit)? = null): DiscoveredScooter? = withContext(Dispatchers.IO) {
         try {
             val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
             multicastLock = wm?.createMulticastLock("S1ModsScanner")?.apply {
@@ -207,32 +260,42 @@ object NetworkScanner {
             }
         } catch (_: Exception) {}
 
+        logCallback?.invoke("[*] Discovery Vector 1: Querying kernel neighbor table (ip neigh)...")
         val candidateList = mutableListOf<DiscoveredScooter>()
 
         // 1. Check ip neigh
-        candidateList.addAll(scanIpNeigh())
+        val neighList = scanIpNeigh()
+        logCallback?.invoke("    Found ${neighList.size} neighbor entries.")
+        candidateList.addAll(neighList)
 
         // 2. Check /proc/net/arp
-        candidateList.addAll(scanProcArp())
+        val arpList = scanProcArp()
+        if (arpList.isNotEmpty()) {
+            logCallback?.invoke("    Found ${arpList.size} ARP entries.")
+            candidateList.addAll(arpList)
+        }
 
         // Test all discovered candidates from neighbor tables on port 50005
-        val neighborJobs = candidateList.distinctBy { it.ip }.map { candidate ->
-            async {
-                val open = testPort(candidate.ip, 50005, candidate.scope, 800)
-                if (open) candidate.copy(isPortOpen = true) else null
+        val uniqueCandidates = candidateList.distinctBy { it.ip }
+        logCallback?.invoke("[*] Probing ${uniqueCandidates.size} candidate addresses on TCP Port 50005...")
+        for (candidate in uniqueCandidates) {
+            val probe = testPortDetailed(candidate.ip, 50005, candidate.scope, 1000)
+            if (probe.isOpen) {
+                logCallback?.invoke("    [+] Port 50005 OPEN on ${candidate.ip} (${probe.timeTakenMs}ms) via ${candidate.source}!")
+                try { multicastLock?.release() } catch (_: Exception) {}
+                return@withContext candidate.copy(isPortOpen = true)
+            } else {
+                logCallback?.invoke("    [-] ${candidate.ip}: ${probe.errorDetails ?: "Closed"}")
             }
-        }
-        val neighborFound = neighborJobs.awaitAll().filterNotNull().firstOrNull()
-        if (neighborFound != null) {
-            try { multicastLock?.release() } catch (_: Exception) {}
-            return@withContext neighborFound
         }
 
         // 3. Subnet sweep on local IPv4 (Hotspot / Wi-Fi subnet)
         val subnetInfo = getLocalSubnet()
         if (subnetInfo != null) {
+            logCallback?.invoke("[*] Discovery Vector 2: Fast-probing local subnet ${subnetInfo.first}x...")
             val sweepFound = sweepSubnetIpv4(subnetInfo.first)
             if (sweepFound != null) {
+                logCallback?.invoke("    [+] Discovered responsive host via subnet sweep: ${sweepFound.ip}")
                 try { multicastLock?.release() } catch (_: Exception) {}
                 return@withContext sweepFound
             }

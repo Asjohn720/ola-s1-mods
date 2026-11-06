@@ -17,7 +17,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,6 +34,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SetupScreen(manager: ScooterManager) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
     val scooterIp by manager.scooterIp.collectAsState()
     val scooterScope by manager.scooterScope.collectAsState()
@@ -47,7 +50,7 @@ fun SetupScreen(manager: ScooterManager) {
     var tempScope by remember { mutableStateOf(scooterScope?.toString() ?: "") }
     var isTestingPort by remember { mutableStateOf(false) }
 
-    // App selection state for setup (all 4 checked by default)
+    // App selection state for setup (Balls + Music)
     var selectedApps by remember { mutableStateOf(ModApp.values().toSet()) }
 
     val listState = rememberLazyListState()
@@ -156,26 +159,42 @@ fun SetupScreen(manager: ScooterManager) {
                         )
                     }
 
-                    TextButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                isTestingPort = true
-                                val open = manager.testConnection()
-                                isTestingPort = false
-                                Toast.makeText(
-                                    context,
-                                    if (open) "Port 50005 reachable" else "Port 50005 unreachable. Wake scooter screen.",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    isTestingPort = true
+                                    manager.runNetworkDiagnostics()
+                                    isTestingPort = false
+                                }
+                            },
+                            enabled = !isTestingPort,
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text("Diagnose", fontSize = 12.sp, color = AccentMint)
+                        }
+
+                        TextButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    isTestingPort = true
+                                    val open = manager.testConnection()
+                                    isTestingPort = false
+                                    Toast.makeText(
+                                        context,
+                                        if (open) "Port 50005 reachable" else "Port 50005 unreachable. Check Diagnostics log.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            enabled = !isTestingPort,
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            if (isTestingPort) {
+                                CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp, color = TextSecondary)
+                            } else {
+                                Text("Test Port", fontSize = 12.sp, color = AccentSky)
                             }
-                        },
-                        enabled = !isTestingPort,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        if (isTestingPort) {
-                            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp, color = TextSecondary)
-                        } else {
-                            Text("Test Port", fontSize = 12.sp, color = AccentSky)
                         }
                     }
                 }
@@ -289,13 +308,35 @@ fun SetupScreen(manager: ScooterManager) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Console Output",
+                        text = "Diagnostics & Output",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = TextMuted
                     )
-                    IconButton(onClick = { manager.clearLogs() }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = "Clear", tint = TextMuted, modifier = Modifier.size(16.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                val fullLog = logs.joinToString("\n")
+                                clipboard.setText(AnnotatedString(fullLog))
+                                Toast.makeText(context, "Full diagnostic log copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(6.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = AccentMint),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Copy Log", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        }
+
+                        IconButton(onClick = { manager.clearLogs() }, modifier = Modifier.size(28.dp)) {
+                            Icon(Icons.Default.DeleteOutline, contentDescription = "Clear", tint = TextMuted, modifier = Modifier.size(16.dp))
+                        }
                     }
                 }
 
@@ -304,7 +345,7 @@ fun SetupScreen(manager: ScooterManager) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     items(logs) { logLine ->
                         val color = when {
@@ -315,10 +356,10 @@ fun SetupScreen(manager: ScooterManager) {
                         }
                         Text(
                             text = logLine,
-                            fontSize = 11.sp,
+                            fontSize = 13.sp, // Enlarged from 11.sp for high legibility
                             fontFamily = FontFamily.Monospace,
                             color = color,
-                            lineHeight = 15.sp
+                            lineHeight = 18.sp // Clean line-height
                         )
                     }
                 }
@@ -450,13 +491,13 @@ fun SetupScreen(manager: ScooterManager) {
                     }
 
                     Text(
-                        text = "Choose applications to install:",
+                        text = "Applications to install:",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary
                     )
 
-                    // App Selection Checkboxes (Total 4 apps)
+                    // App Selection Checkboxes (Balls + Music)
                     ModApp.values().forEach { app ->
                         val isChecked = selectedApps.contains(app)
                         Row(
