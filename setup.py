@@ -5,9 +5,9 @@ Automates:
   1. Finding Ola scooter IP over local Wi-Fi
   2. Keeping scooter awake via Ola Diagnostic App
   3. Unlocking ADB access (safe, reversible RAM bind-mount)
-  4. Verifying bundled local APKs (Ola Balls & Ola Music Mod)
+  4. Verifying bundled local APKs (Balls & Music Mod)
   5. Installing APKs & granting required permissions
-  6. Launching Ola Balls for easy floating navigation
+  6. Launching Balls for easy floating navigation
 """
 from __future__ import annotations
 
@@ -119,18 +119,13 @@ def scan_for_scooter() -> tuple[str, int] | None:
 
     return None
 
-def open_diag_and_wake(channel):
-    """Wakes the screen and opens diagnostic app to prevent sleep."""
-    print("[*] Sending wake command and setting stay-on...")
-    ola.run(channel, "svc power stayon true", quiet=True)
+def pre_setup_wake(channel):
+    """Wakes screen safely without modifying persistent sleep/power states."""
+    print("[*] Waking display...")
     ola.run(channel, "input keyevent 224", quiet=True)
+    print("    >> PRE-CHECK: Ensure scooter side stand is UP and screen stays awake during mods.")
+    import time
     time.sleep(0.5)
-
-    print("[*] Launching Ola Diagnostic App (com.ola.mfgapp)...")
-    ola.run(channel, "am start -n com.ola.mfgapp/.MainActivity", quiet=True)
-    print("    >> Note: While the Diagnostic App is active, Ola's internal")
-    print("       power manager will NOT sleep or lock during setup!")
-    time.sleep(1.0)
 
 def unlock_adb(channel, ipv6: str, scope: int | None, adb_exe: str) -> str:
     """Safely unlocks ADB via RAM bind mount without flashing partitions."""
@@ -184,7 +179,7 @@ echo "bound $T"
     return device
 
 def install_and_grant(device: str, adb_exe: str, qb_apk: str, sq_apk: str):
-    """Installs bundled APKs and grants Ola Balls all necessary Android permissions."""
+    """Installs bundled APKs and grants Balls all necessary Android permissions."""
     def safe_install(apk_path: str, app_name: str):
         print(f"[*] Installing {app_name}...")
         res = subprocess.run([adb_exe, "-s", device, "install", "-r", "-d", apk_path], capture_output=True, text=True)
@@ -196,13 +191,13 @@ def install_and_grant(device: str, adb_exe: str, qb_apk: str, sq_apk: str):
         else:
             print(f"    [*] Install status: {combined or 'Done'}")
 
-    safe_install(qb_apk, "Ola Balls navigation overlay")
-    safe_install(sq_apk, "Ola Music Mod player")
+    safe_install(qb_apk, "Balls navigation overlay")
+    safe_install(sq_apk, "Music Mod player")
 
-    pkg = "com.asjohn720.olaballs"
-    svc = f"{pkg}/com.asjohn720.olaballs.core.QuickBallService"
+    pkg = "com.asjohn720.ball"
+    svc = f"{pkg}/com.asjohn720.ball.core.QuickBallService"
 
-    print("[*] Granting special permissions to Ola Balls via ADB...")
+    print("[*] Granting special permissions to Balls via ADB...")
     # 1. Overlay (floating window)
     subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", pkg, "SYSTEM_ALERT_WINDOW", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     # 2. Write Settings
@@ -214,7 +209,7 @@ def install_and_grant(device: str, adb_exe: str, qb_apk: str, sq_apk: str):
     print("    [+] WRITE_SETTINGS granted.")
     print("    [+] Accessibility Service enabled.")
 
-    print("[*] Initializing Ola Balls overlay...")
+    print("[*] Initializing Balls overlay...")
     subprocess.run([adb_exe, "-s", device, "shell", "am", "start", "-n", f"{pkg}/.ui.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     time.sleep(1.2)
 
@@ -227,7 +222,7 @@ def main():
     print(BANNER)
 
     parser = argparse.ArgumentParser(description="Ola S1 Quick Mod & Setup Tool")
-    parser.add_argument("--ipv6", help="Scooter IPv6 address (e.g. fe80::ea8d:a6ff:fea2:faf0)")
+    parser.add_argument("--ipv6", help="Scooter IPv6 address (e.g. fe80::1234:5678:9abc:def0)")
     parser.add_argument("--scope", type=int, help="Interface scope ID (e.g. 22)")
     parser.add_argument("--port", type=int, default=50005, help="Ola gRPC port (default 50005)")
     args = parser.parse_args()
@@ -265,7 +260,7 @@ def main():
                 print("  [3] Exit")
                 choice = input("\nEnter choice [1-3] (default 1): ").strip()
                 if choice == "2":
-                    ipv6 = input("Enter Scooter IPv6 (e.g. fe80::ea8d:a6ff:fea2:faf0): ").strip()
+                    ipv6 = input("Enter Scooter IPv6 (e.g. fe80::1234:5678:9abc:def0): ").strip()
                     scope_str = input("Enter Interface Scope ID (e.g. 22): ").strip()
                     scope = int(scope_str) if scope_str else None
                     break
@@ -282,8 +277,8 @@ def main():
         sys.exit(1)
 
     # Step 3: Prevent Sleep & Wake Screen
-    print_step(3, "Waking Screen & Launching Diagnostic App")
-    open_diag_and_wake(channel)
+    print_step(3, "Waking Screen & Pre-Flight Check")
+    pre_setup_wake(channel)
 
     # Step 4: Unlock ADB
     print_step(4, "Unlocking ADB Access")
@@ -293,8 +288,8 @@ def main():
     print_step(5, "Verifying Bundled Mod APK Packages")
     repo_dir = os.path.dirname(os.path.abspath(__file__))
     apks_dir = os.path.join(repo_dir, "apks")
-    qb_apk = os.path.join(apks_dir, "olaballs-1.0.0-lite-release.apk")
-    sq_apk = os.path.join(apks_dir, "olamusicmod-release.apk")
+    qb_apk = os.path.join(apks_dir, "balls-1.0.0-lite-release.apk")
+    sq_apk = os.path.join(apks_dir, "musicmod-release.apk")
 
     if not os.path.isfile(qb_apk):
         print(f"[!] Error: Missing APK at {qb_apk}")
@@ -315,13 +310,13 @@ def main():
     print("         CONGRATULATIONS! ALL MODS INSTALLED SUCCESSFULLY!       ")
     print("=" * 72)
     print("\n[+] Scooter display is now back on your Ola Home Dashboard.")
-    print("[+] Ola Balls navigation overlay is active and ready to use!")
+    print("[+] Balls navigation overlay is active and ready to use!")
     print("\n>>> HOW TO USE YOUR NEW MODS:")
     print("  Tap the floating ball on your screen anytime to access:")
     print("    * Back          -> Instant Back button inside any app")
     print("    * Home          -> Instant return to Ola Speedometer Dashboard")
     print("    * Settings      -> Direct access to Android Settings (Wi-Fi, Bluetooth, etc.)")
-    print("    * Ola Music Mod -> Ad-free streaming & offline music playback")
+    print("    * Music Mod -> Ad-free streaming & offline music playback")
     print("\nNo manual configuration required - everything is ready to enjoy!")
     print("=" * 72)
 

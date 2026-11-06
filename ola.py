@@ -330,6 +330,7 @@ def main(argv=None):
     add("back", help="back key")
     add("recents", help="recent apps")
     add("wake", help="wake the screen and keep it on")
+    add("sleep", help="turn screen off and restore auto-sleep")
     add("top", help="show the resumed activity")
     add("info", help="uid, Android build, scooter mode")
 
@@ -430,6 +431,14 @@ def main(argv=None):
             run(channel, "input keyevent 224", 20, quiet=True)
             run(channel, "svc power stayon true", 20, quiet=True)
             print("screen awake, stay-on enabled")
+            return 0
+
+        if a == "sleep":
+            run(channel, "svc power stayon false", 20, quiet=True)
+            run(channel, "settings put global stay_on_while_plugged_in 0", 20, quiet=True)
+            run(channel, "settings put system screen_off_timeout 120000", 20, quiet=True)
+            run(channel, "input keyevent 26", 20, quiet=True)
+            print("screen turned off, auto-sleep restored (timeout: 2m)")
             return 0
 
         if a == "top":

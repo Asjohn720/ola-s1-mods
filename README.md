@@ -1,15 +1,34 @@
-# 🛵 Ola S1 Quick Mod & Navigation Suite
+# 🛵 S1Mods - Open-Source Infotainment Utility for MoveOS
 
 [![Target OS](https://img.shields.io/badge/MoveOS-2.x%20|%203.x%20|%204.x%20|%205.x-green.svg)](#supported-vehicles--compatibility-matrix)
 [![Head Unit OS](https://img.shields.io/badge/Head%20Unit-Android%2010%20%7C%2013-blue.svg)](#technical-specifications)
-[![Stack](https://img.shields.io/badge/Stack-Python%203%20+%20ADB-brightgreen.svg)](#key-features)
+[![Stack](https://img.shields.io/badge/Stack-Kotlin%20Compose%20+%20Python%203%20+%20ADB-brightgreen.svg)](#key-features)
 [![Protocol](https://img.shields.io/badge/Protocol-Root%20gRPC%20%28Port%2050005%29-orange.svg)](#technical-specifications)
 [![Safety](https://img.shields.io/badge/Safety-100%25%20In--Memory%20RAM%20Mount-blueviolet.svg)](#safety-reversibility--zero-flash-modification)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An automated, one-click setup utility to unlock wireless ADB, bypass aggressive vehicle sleep timeouts, and configure **Floating Touch Navigation (Back, Home, Settings)** and **Ola Music Mod** on Ola S1 electric scooters.
+An automated, one-click open-source setup utility and standalone Android application to unlock wireless ADB, configure **Floating Touch Navigation (Back, Home, Settings)** and **Music Player** on MoveOS-powered infotainment units.
 
-Zero soldering, zero flash partition writes, and 100% reversible with a single scooter restart.
+Zero soldering, zero flash partition writes, and 100% reversible with a single vehicle restart.
+
+---
+
+## ⚡ Quick Start: Android App (Recommended - No PC Needed)
+
+1. Turn on **Personal Hotspot** on your Android phone.
+2. On your scooter display, go to **Settings > Wi-Fi** and connect to your phone's hotspot.
+3. Install and open [`S1Mods-v1.0.0.apk`](S1Mods-v1.0.0.apk) on your phone.
+4. Tap **Scan** *(allow Location permission when prompted — Android requires this to scan local devices)*. If auto-scan is blocked by your phone's security, copy the scooter's **MAC or IP** from **Hotspot > Connected Devices** and paste it via the **Edit (✏️)** button.
+5. Ensure the scooter's **side stand is UP** and screen is awake.
+6. Tap **1-CLICK AUTOMATED SETUP** — within seconds, navigation controls and music mod are installed!
+
+---
+
+## 💻 Alternative Quick Start: Windows PC
+
+1. **Same Wi-Fi Network:** Connect PC and Scooter to the same Wi-Fi or phone hotspot.
+2. **Scooter Awake:** Side stand UP, screen active.
+3. Run **`setup.bat`** in the repository root.
 
 ---
 
@@ -25,20 +44,21 @@ Watch the modded infotainment interface and floating touch navigation running li
 
 > [!NOTE]
 > **Notice on Siri / iOS Voice Unlock in the Video:**
-> The Siri Shortcuts / iOS voice unlocking feature demonstrated in the video is **private** and not part of this public release, as it relies on personal account credentials and private session keys. You can unlock your vehicle normally using the official **Ola Companion App**, the touchscreen passkey on the dashboard, or through the included wireless ADB / gRPC commands.
+> The Siri Shortcuts / iOS voice unlocking feature demonstrated in the video is **private** and not part of this public release, as it relies on personal account credentials and private session keys. You can unlock your vehicle normally using the official companion app, the touchscreen passkey on the dashboard, or through standard wireless ADB / gRPC commands.
 
 ---
 
 ## ✨ Key Features
 
-* 🔍 **Zero-Config Auto-Discovery:** Automatically scans IPv6 link-local multicast and discovers the scooter's head unit IP over your home Wi-Fi or hotspot.
-* ⚡ **Anti-Sleep Mechanism (Diagnostic App):** Launches Ola's native **Diagnostic App (`com.ola.mfgapp`)** during setup, suppressing the Vehicle State Manager from locking the screen or turning off Wi-Fi.
+* 📲 **All-in-One Android App (`S1Mods`):** Complete standalone Android application to auto-detect scooter over phone hotspot, unlock ADB, install bundled APKs, capture screenshots, open settings, and run root shell directly from your phone — **zero PC required!** Located in [`android/`](android/) and pre-compiled as [`S1Mods-v1.0.0.apk`](S1Mods-v1.0.0.apk).
+* 🔍 **Zero-Config Auto-Discovery & Hotspot Helper:** Automatically scans IPv6 link-local multicast and local hotspot subnets. Includes an instant MAC-to-IPv6 converter using SLAAC EUI-64 standards.
+* 🛡️ **Zero Power-Manager Tampering (Safe Auto-Lock):** Does **NOT** alter the system power manager or force persistent stay-on. Your scooter's built-in auto-lock and anti-theft security remain 100% untouched.
 * 🔓 **Safe & Reversible In-Memory ADB Unlock:** Authorizes ADB over TCP port 5555 using a temporary RAM bind-mount (`mount --bind`). No system, vendor, or boot partitions are ever modified.
-* 📱 **Floating Touch Navigation Controls:** Installs **Ola Balls** to provide essential touch buttons (Back, Home, Settings) directly on the infotainment display.
-* 🎵 **Offline & Streaming Music Player:** Installs **Ola Music Mod**, giving you ad-free music playback directly from the dash.
-* 📦 **Pre-Bundled Local APKs:** Modded application packages are pre-bundled in `apks/` for instant, offline installation with zero external dependencies.
+* 📱 **Floating Touch Navigation Controls:** Installs **Balls** to provide essential touch buttons (Back, Home, Settings) directly on the infotainment display.
+* 🎵 **Offline & Streaming Music Player:** Installs **Music Mod**, giving you ad-free music playback directly from the dash.
+* 📦 **Pre-Bundled Local APKs:** Modded application packages are pre-bundled in `apks/` (`balls-1.0.0-lite-release.apk` and `musicmod-release.apk`) for instant, offline installation with zero external dependencies.
 * 🛠️ **Automated Permission Grants:** Grants `SYSTEM_ALERT_WINDOW` (overlay), `WRITE_SETTINGS`, and Android Accessibility Services via ADB without manual prompt tapping.
-* 🎯 **1-Click Execution:** Double-click `setup.bat` and let the utility handle discovery, waking, ADB unlocking, downloading, and installation automatically.
+* 🎯 **1-Click Execution:** Run via Android App or double-click `setup.bat` on PC.
 * 🐍 **Direct Root Controller (`ola.py`):** Includes a standalone, weakly-typed gRPC root control script to inspect vehicle properties, open settings, take screenshots, or execute root shell commands.
 
 ---
@@ -67,80 +87,9 @@ Watch the modded infotainment interface and floating touch navigation running li
 | **Primary ABI** | `arm64-v8a` (64-bit) | Native 64-bit userland (compatible with `armeabi-v7a`) |
 | **Graphics (GPU)** | Qualcomm Adreno 506 | Hardware acceleration for native Kanzi HMI dashboard |
 | **Diagnostics Service** | Diagnostics gRPC Daemon | Weakly-typed root (`uid 0`) execution on TCP port `50005` |
-| **Network Interface** | IPv6 Link-Local (`fe80::/64`) | Discovered via Wi-Fi `ff02::1` multicast ICMPv6 probing |
+| **Network Interface** | IPv6 Link-Local (`fe80::/64`) | Discovered via Wi-Fi `ff02::1` multicast ICMPv6 probing / Hotspot |
 | **ADB Auth Target** | `/data/misc/adb/adbkeymoveos3_pub_prod` | In-memory bind-mounted from `/data/local/tmp/adb_keys_mine` |
-| **Anti-Sleep Activity** | `com.ola.mfgapp/.MainActivity` | Suppresses `vehiclestatemanager` inactivity auto-lock |
 | **Subsystem Safety** | HMI Infotainment Layer Only | Powertrain, BMS, and MCU remain physically & logically isolated |
-
----
-
-## ⚡ Quick Start Guide
-
-### Prerequisites
-
-Before starting, ensure:
-1. **Same Wi-Fi Network:** Your Windows PC and Ola Scooter must be connected to the **same Wi-Fi network** (or PC connected to scooter hotspot / phone hotspot sharing connection).
-2. **Scooter Awake:** The scooter screen must be active (press power button or tap display).
-3. **Python 3:** Download and install from [python.org](https://www.python.org/downloads/) (tick **"Add Python to PATH"**).
-4. **Android Platform Tools (ADB):** Download from [Google Platform Tools](https://developer.android.com/tools/releases/platform-tools) and ensure `adb.exe` is in your system PATH.
-
----
-
-### Method 1: 1-Click Automated Setup (Recommended)
-
-Simply double-click **`setup.bat`** in the repository root.
-
-The script will automatically:
-1. Locate your Android Platform Tools (`adb.exe`).
-2. Verify or install Python dependencies (`grpcio`).
-3. Scan your Wi-Fi interface for your scooter's IPv6 link-local address.
-4. Launch the Ola Diagnostic App to suppress sleep timeouts.
-5. In-memory bind your PC's ADB key and connect over TCP 5555.
-6. Verify pre-bundled APKs (**Ola Balls** and **Ola Music Mod**) from `apks/`.
-7. Install APKs, grant overlay/accessibility permissions, and return scooter to Ola Home Dashboard.
-
----
-
-### Method 2: Command Line (CMD / PowerShell)
-
-Run `setup.bat` directly from terminal:
-```cmd
-setup.bat
-```
-
-Or execute via Python:
-```bash
-python setup.py
-```
-
-If you already know the scooter's IPv6 address and network interface scope ID, skip scanning by passing arguments:
-```cmd
-setup.bat --ipv6 fe80::ea8d:a6ff:fea2:faf0 --scope 22
-```
-
----
-
-## 🧠 Why Does the Diagnostic App Open? (Anti-Sleep)
-
-On MoveOS, a background service named **Vehicle State Manager** enforces strict inactivity timeouts. Even when third-party apps or native settings menus are open, the vehicle manager will lock the display and power down Wi-Fi.
-
-**How This Tool Solves It:**
-The script automatically launches Ola's internal **Manufacturing / Diagnostic App (`com.ola.mfgapp`)**. While this application is in the foreground, the vehicle state manager suppresses inactivity sleep and screen timeout. This guarantees your Wi-Fi link remains active throughout file downloads and installation.
-
----
-
-## 📱 Ola Balls Navigation & Controls
-
-**Ola Balls** comes fully pre-configured out of the box with zero manual configuration required!
-
-Once the installation finishes, the script automatically returns your scooter display to the **Ola Home Dashboard (`com.olaelectric.hmiclient`)**, with the floating navigation ball active and ready to use:
-
-* ⬅️ **Back:** Emulates the Android Back button inside any app or settings menu.
-* 🏠 **Home:** Instantly returns to the Ola speedometer dashboard.
-* ⚙️ **Settings:** Opens native Android Settings directly (Wi-Fi, Bluetooth, Display, etc.).
-* 🎵 **Ola Music Mod:** Opens the ad-free streaming & offline music player.
-
-Simply tap the floating ball on your screen anytime to switch between music, settings, and your speedometer!
 
 ---
 
@@ -150,26 +99,23 @@ The included `ola.py` script communicates directly with the scooter's root gRPC 
 
 ```bash
 # Display scooter hardware & firmware details
-python ola.py info --ipv6 fe80::ea8d:a6ff:fea2:faf0%22
+python ola.py info --ipv6 fe80::1234:5678:9abc:def0%22
 
 # Launch native Android Settings menu (Wi-Fi, Bluetooth, Apps, Display, etc.)
-python ola.py settings --ipv6 fe80::ea8d:a6ff:fea2:faf0%22
+python ola.py settings --ipv6 fe80::1234:5678:9abc:def0%22
 
 # Open specific settings panel
-python ola.py wifi --ipv6 fe80::ea8d:a6ff:fea2:faf0%22
-python ola.py bluetooth --ipv6 fe80::ea8d:a6ff:fea2:faf0%22
-
-# Launch Diagnostic App
-python ola.py diag --ipv6 fe80::ea8d:a6ff:fea2:faf0%22
+python ola.py wifi --ipv6 fe80::1234:5678:9abc:def0%22
+python ola.py bluetooth --ipv6 fe80::1234:5678:9abc:def0%22
 
 # Capture head-unit screenshot to PC
-python ola.py screenshot dash.png --ipv6 fe80::ea8d:a6ff:fea2:faf0%22
+python ola.py screenshot dash.png --ipv6 fe80::1234:5678:9abc:def0%22
 
 # Execute arbitrary root shell commands
-python ola.py shell "ls -la /data/local/tmp" --ipv6 fe80::ea8d:a6ff:fea2:faf0%22
+python ola.py shell "ls -la /data/local/tmp" --ipv6 fe80::1234:5678:9abc:def0%22
 
 # Interactive root shell session
-python ola.py interactive --ipv6 fe80::ea8d:a6ff:fea2:faf0%22
+python ola.py interactive --ipv6 fe80::1234:5678:9abc:def0%22
 ```
 
 ---
@@ -178,7 +124,7 @@ python ola.py interactive --ipv6 fe80::ea8d:a6ff:fea2:faf0%22
 
 * **Zero Partition Writes:** No system, vendor, boot, or recovery partitions are touched or flashed.
 * **In-Memory RAM Bind Mount:** The ADB key authorization uses `mount --bind` pointing to `/data/local/tmp`. It exists only in temporary RAM.
-* **Instant Reversibility:** A standard scooter restart or reboot immediately unmounts the temporary bind and returns the vehicle to its factory state.
+* **Instant Reversibility:** A standard vehicle restart immediately unmounts the temporary bind and returns the vehicle to its factory state.
 * **Subsystem Isolation:** The tool communicates exclusively with the Android infotainment unit (HMI). It has no access to vehicle powertrain, throttle controls, BMS, or motor controllers.
 
 ---
@@ -188,8 +134,9 @@ python ola.py interactive --ipv6 fe80::ea8d:a6ff:fea2:faf0%22
 ```
 ola-s1-mods/
 ├── apks/                  # Pre-bundled mod APK packages
-│   ├── olaballs-1.0.0-lite-release.apk
-│   └── olamusicmod-release.apk
+│   ├── balls-1.0.0-lite-release.apk
+│   └── musicmod-release.apk
+├── android/               # S1Mods Standalone Android Application
 ├── .gitignore             # Standard Git ignore rules
 ├── LICENSE                # MIT License with research & safety disclaimer
 ├── ola.py                 # Pure Python gRPC root communication engine
@@ -203,10 +150,10 @@ ola-s1-mods/
 
 ## 👨‍💻 Author & Contact
 
-* **Anand ([@Asjohn720](https://github.com/Asjohn720))** — Automated discovery engine, in-memory ADB unlock workflow, and project packaging.
-  * 🌐 **GitHub:** [@Asjohn720](https://github.com/Asjohn720)
-  * 🐦 **X (Twitter):** [@asjohn720](https://x.com/asjohn720)
-  * 📸 **Instagram:** [@asjohn720](https://www.instagram.com/asjohn720)
+* **Anand ([@Asjohn720](https://github.com/Asjohn720))** — Automated discovery engine, in-memory ADB unlock workflow, Android app architecture, and project packaging.
+  - 🌐 **GitHub:** [@Asjohn720](https://github.com/Asjohn720)
+  - 🐦 **X (Twitter):** [@asjohn720](https://x.com/asjohn720)
+  - 📸 **Instagram:** [@asjohn720](https://www.instagram.com/asjohn720)
 
 ### 🤝 Acknowledgments & Credits
 
@@ -219,15 +166,20 @@ ola-s1-mods/
 
 ## ⚖️ Legal Disclaimer & Fair Use Notice
 
-This project is an independent academic, educational, and interoperability research initiative conducted on privately owned consumer hardware:
+> [!IMPORTANT]
+> **LEGAL DISCLAIMER & TRADEMARK NOTICE:**
+> This repository and application are an independent, non-commercial, open-source educational utility developed by independent software enthusiasts. This project is **NOT** affiliated, associated, authorized, endorsed by, or in any way officially connected with **Ola Electric Mobility Ltd.**, **ANI Technologies Pvt. Ltd.**, or any of their subsidiaries or affiliates.
+> 
+> The names *"Ola"*, *"Ola Electric"*, *"MoveOS"*, *"S1"*, *"S1 Pro"*, and all related product names, trademarks, service marks, and emblems are registered trademarks of their respective owners. Any reference to these trademarks within this repository, documentation, or application is strictly for descriptive and nominative fair use (in accordance with Section 30 of the Indian Trade Marks Act, 1999) to indicate software/hardware compatibility.
+> 
+> The developers assume no liability for the use or misuse of this software. Use at your own discretion.
 
 * **Lawful Interoperability:** Research and development are carried out under lawful interoperability doctrines, specifically **Section 52(1)(ab) of the Indian Copyright Act, 1957**, which explicitly permits the reverse engineering and adaptation of computer programs to achieve interoperability with other programs or devices, and international Fair Use principles.
 * **Safety & Powertrain Non-Interference:** At no point does this software modify, reflash, or compromise safety-critical vehicle components such as the Motor Controller Unit (MCU), Battery Management System (BMS), accelerator/throttle mapping, or braking subsystems. All interactions are confined strictly to the userland Android infotainment head unit.
-* **No Cloud or Backend Interference:** No Ola Electric remote servers, telematics infrastructure, cellular eSIM services, or subscription backends are accessed, compromised, or disrupted.
-* **Trademarks:** All brand names, logos, and trademarks (including "Ola", "Ola Electric", "MoveOS", and "Android") are the property of their respective owners and are used here purely for nominative product identification.
+* **No Cloud or Backend Interference:** No remote servers, telematics infrastructure, cellular eSIM services, or subscription backends are accessed, compromised, or disrupted.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+This software is released under the [MIT License](LICENSE). All product names, logos, and brands are property of their respective owners. All company, product, and service names used in this software are for identification and compatibility purposes only.
