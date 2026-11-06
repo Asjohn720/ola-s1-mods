@@ -1,4 +1,4 @@
-package com.asjohn720.olamods.ui.theme
+package com.asjohn720.s1mods.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -24,9 +24,12 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun OlaModsTheme(content: @Composable () -> Unit) {
+fun S1ModsTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = DarkColorScheme,
         content = content
     )
 }
+
+@Composable
+fun OlaModsTheme(content: @Composable () -> Unit) = S1ModsTheme(content)

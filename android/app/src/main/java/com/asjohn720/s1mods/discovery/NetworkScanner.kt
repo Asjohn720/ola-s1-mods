@@ -1,4 +1,4 @@
-package com.asjohn720.olamods.discovery
+package com.asjohn720.s1mods.discovery
 
 import android.content.Context
 import android.net.wifi.WifiManager
@@ -201,7 +201,7 @@ object NetworkScanner {
     suspend fun scanForScooter(context: Context): DiscoveredScooter? = withContext(Dispatchers.IO) {
         try {
             val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            multicastLock = wm?.createMulticastLock("OlaModsScanner")?.apply {
+            multicastLock = wm?.createMulticastLock("S1ModsScanner")?.apply {
                 setReferenceCounted(true)
                 acquire()
             }

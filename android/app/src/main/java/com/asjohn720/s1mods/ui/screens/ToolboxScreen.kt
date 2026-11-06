@@ -1,4 +1,4 @@
-package com.asjohn720.olamods.ui.screens
+package com.asjohn720.s1mods.ui.screens
 
 import android.graphics.Bitmap
 import android.widget.Toast
@@ -24,9 +24,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.asjohn720.olamods.model.ScooterInfo
-import com.asjohn720.olamods.model.ScooterManager
-import com.asjohn720.olamods.ui.theme.*
+import com.asjohn720.s1mods.model.ScooterInfo
+import com.asjohn720.s1mods.model.ScooterManager
+import com.asjohn720.s1mods.ui.theme.*
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
@@ -36,6 +36,8 @@ fun ToolboxScreen(manager: ScooterManager) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+
+    var activeAction by remember { mutableStateOf<String?>(null) }
 
     var screenshotBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var isCapturing by remember { mutableStateOf(false) }
@@ -61,27 +63,57 @@ fun ToolboxScreen(manager: ScooterManager) {
 
         // Quick Action Grid (Speedometer Home & Settings)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            val isHomeLoading = activeAction == "home"
             ToolboxActionCard(
                 title = "Dashboard Home",
                 subtitle = "Speedometer & Main UI",
                 icon = Icons.Default.Home,
+                isLoading = isHomeLoading,
                 modifier = Modifier.weight(1f)
             ) {
-                coroutineScope.launch {
-                    manager.openOlaHome()
-                    Toast.makeText(context, "Dashboard Home opened", Toast.LENGTH_SHORT).show()
+                if (activeAction == null) {
+                    coroutineScope.launch {
+                        activeAction = "home"
+                        try {
+                            val ok = manager.openDashboardHome()
+                            if (ok) {
+                                Toast.makeText(context, "Dashboard Home confirmed opened", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Failed to confirm Dashboard Home", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        } finally {
+                            activeAction = null
+                        }
+                    }
                 }
             }
 
+            val isSettingsLoading = activeAction == "settings"
             ToolboxActionCard(
                 title = "System Settings",
                 subtitle = "Native Settings Panel",
                 icon = Icons.Default.Settings,
+                isLoading = isSettingsLoading,
                 modifier = Modifier.weight(1f)
             ) {
-                coroutineScope.launch {
-                    manager.openSettings("android.settings.SETTINGS")
-                    Toast.makeText(context, "Settings opened", Toast.LENGTH_SHORT).show()
+                if (activeAction == null) {
+                    coroutineScope.launch {
+                        activeAction = "settings"
+                        try {
+                            val ok = manager.openSettings("android.settings.SETTINGS")
+                            if (ok) {
+                                Toast.makeText(context, "System Settings confirmed opened", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Failed to confirm Settings", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                        } finally {
+                            activeAction = null
+                        }
+                    }
                 }
             }
         }
@@ -107,18 +139,18 @@ fun ToolboxScreen(manager: ScooterManager) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    SettingChip("Wi-Fi", "android.settings.WIFI_SETTINGS", manager, coroutineScope, context)
-                    SettingChip("Bluetooth", "android.settings.BLUETOOTH_SETTINGS", manager, coroutineScope, context)
-                    SettingChip("Apps", "android.settings.APPLICATION_SETTINGS", manager, coroutineScope, context)
+                    SettingChip("Wi-Fi", "android.settings.WIFI_SETTINGS", "wifi", activeAction, manager, coroutineScope, context) { activeAction = it }
+                    SettingChip("Bluetooth", "android.settings.BLUETOOTH_SETTINGS", "bt", activeAction, manager, coroutineScope, context) { activeAction = it }
+                    SettingChip("Apps", "android.settings.APPLICATION_SETTINGS", "apps", activeAction, manager, coroutineScope, context) { activeAction = it }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    SettingChip("Display", "android.settings.DISPLAY_SETTINGS", manager, coroutineScope, context)
-                    SettingChip("Sound", "android.settings.SOUND_SETTINGS", manager, coroutineScope, context)
-                    SettingChip("Date/Time", "android.settings.DATE_SETTINGS", manager, coroutineScope, context)
+                    SettingChip("Display", "android.settings.DISPLAY_SETTINGS", "display", activeAction, manager, coroutineScope, context) { activeAction = it }
+                    SettingChip("Sound", "android.settings.SOUND_SETTINGS", "sound", activeAction, manager, coroutineScope, context) { activeAction = it }
+                    SettingChip("Date/Time", "android.settings.DATE_SETTINGS", "datetime", activeAction, manager, coroutineScope, context) { activeAction = it }
                 }
             }
         }
@@ -150,6 +182,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                                 isFetchingInfo = true
                                 try {
                                     scooterInfo = manager.fetchScooterInfo()
+                                    Toast.makeText(context, "Hardware info confirmed retrieved", Toast.LENGTH_SHORT).show()
                                 } catch (e: Exception) {
                                     Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                                 } finally {
@@ -215,7 +248,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                                 isCapturing = true
                                 try {
                                     screenshotBitmap = manager.captureScreenshot()
-                                    Toast.makeText(context, "Screenshot captured", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Screenshot confirmed captured", Toast.LENGTH_SHORT).show()
                                 } catch (e: Exception) {
                                     Toast.makeText(context, "Capture failed: ${e.message}", Toast.LENGTH_LONG).show()
                                 } finally {
@@ -257,7 +290,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                         onClick = {
                             try {
                                 val picturesDir = context.getExternalFilesDir(null)
-                                val file = File(picturesDir, "ola_screenshot_${System.currentTimeMillis()}.png")
+                                val file = File(picturesDir, "s1_screenshot_${System.currentTimeMillis()}.png")
                                 FileOutputStream(file).use { out ->
                                     screenshotBitmap!!.compress(Bitmap.CompressFormat.PNG, 100, out)
                                 }
@@ -301,13 +334,14 @@ fun ToolboxActionCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
+    isLoading: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Card(
         modifier = modifier
             .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
-            .clickable { onClick() },
+            .clickable(enabled = !isLoading) { onClick() },
         colors = CardDefaults.cardColors(containerColor = SurfaceDark),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -319,12 +353,16 @@ fun ToolboxActionCard(
                     .background(SurfaceVariantDark),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(18.dp))
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = AccentMint, strokeWidth = 2.dp)
+                } else {
+                    Icon(icon, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(18.dp))
+                }
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(text = subtitle, fontSize = 11.sp, color = TextMuted)
+            Text(text = if (isLoading) "Executing..." else subtitle, fontSize = 11.sp, color = if (isLoading) AccentMint else TextMuted)
         }
     }
 }
@@ -333,23 +371,45 @@ fun ToolboxActionCard(
 fun RowScope.SettingChip(
     label: String,
     action: String,
+    actionKey: String,
+    activeAction: String?,
     manager: ScooterManager,
     coroutineScope: kotlinx.coroutines.CoroutineScope,
-    context: android.content.Context
+    context: android.content.Context,
+    setActiveAction: (String?) -> Unit
 ) {
+    val isLoading = activeAction == actionKey
     Button(
         onClick = {
-            coroutineScope.launch {
-                manager.openSettings(action)
-                Toast.makeText(context, "$label opened", Toast.LENGTH_SHORT).show()
+            if (activeAction == null) {
+                coroutineScope.launch {
+                    setActiveAction(actionKey)
+                    try {
+                        val ok = manager.openSettings(action)
+                        if (ok) {
+                            Toast.makeText(context, "$label confirmed opened", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Could not open $label", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                    } finally {
+                        setActiveAction(null)
+                    }
+                }
             }
         },
+        enabled = activeAction == null || isLoading,
         modifier = Modifier.weight(1f),
         shape = RoundedCornerShape(8.dp),
         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
         colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary)
     ) {
-        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.size(12.dp), color = AccentMint, strokeWidth = 2.dp)
+        } else {
+            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+        }
     }
 }
 

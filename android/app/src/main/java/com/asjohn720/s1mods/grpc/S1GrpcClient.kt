@@ -1,4 +1,4 @@
-package com.asjohn720.olamods.grpc
+package com.asjohn720.s1mods.grpc
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -16,10 +16,10 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
 /**
- * Direct gRPC client for Ola S1 Root Diagnostics Service (TCP Port 50005).
+ * Direct gRPC client for MoveOS Root Diagnostics Service (TCP Port 50005).
  * Weakly-typed root execution without authentication or pairing.
  */
-class OlaGrpcClient(
+class S1GrpcClient(
     val host: String,
     val port: Int = 50005,
     val scope: Int? = null
@@ -165,7 +165,7 @@ class OlaGrpcClient(
      * Captures a screenshot from the scooter and returns it as a Bitmap.
      */
     suspend fun takeScreenshot(): Bitmap = withContext(Dispatchers.IO) {
-        val tmp = "/data/local/tmp/_ola_shot.png"
+        val tmp = "/data/local/tmp/_dash_shot.png"
         val (status, out) = executeRaw("screencap -p $tmp", 60L)
         if (status !in 0..1) {
             throw IllegalStateException("Screencap failed: $out")

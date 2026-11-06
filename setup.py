@@ -178,45 +178,57 @@ echo "bound $T"
     print("    [+] ADB connected successfully as 'device'!")
     return device
 
-def install_and_grant(device: str, adb_exe: str, qb_apk: str, sq_apk: str):
-    """Installs bundled APKs and grants Balls all necessary Android permissions."""
+def install_and_grant(device: str, adb_exe: str, apks: dict[str, str]):
+    """Installs bundled APKs and grants necessary Android permissions."""
     def safe_install(apk_path: str, app_name: str):
-        print(f"[*] Installing {app_name}...")
+        print(f"[*] Installing {app_name} ({os.path.basename(apk_path)})...")
         res = subprocess.run([adb_exe, "-s", device, "install", "-r", "-d", apk_path], capture_output=True, text=True)
         combined = (res.stdout + " " + res.stderr).strip()
         if "Success" in combined:
             print(f"    [+] {app_name} installed successfully.")
         elif "ALREADY_EXISTS" in combined or "signatures do not match" in combined:
-            print(f"    [+] {app_name} is already installed.")
+            print(f"    [+] {app_name} is already installed / updated.")
         else:
             print(f"    [*] Install status: {combined or 'Done'}")
 
-    safe_install(qb_apk, "Balls navigation overlay")
-    safe_install(sq_apk, "Music Mod player")
+    for name, path in apks.items():
+        if os.path.isfile(path):
+            safe_install(path, name)
 
-    pkg = "com.asjohn720.ball"
-    svc = f"{pkg}/com.asjohn720.ball.core.QuickBallService"
+    # Balls Navigation permissions
+    pkg_ball = "com.asjohn720.ball"
+    svc_ball = f"{pkg_ball}/com.asjohn720.ball.core.QuickBallService"
+    if "Balls Navigation" in apks and os.path.isfile(apks["Balls Navigation"]):
+        print("[*] Granting special permissions to Balls Navigation via ADB...")
+        subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", pkg_ball, "SYSTEM_ALERT_WINDOW", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", pkg_ball, "WRITE_SETTINGS", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "settings", "put", "secure", "enabled_accessibility_services", svc_ball], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "settings", "put", "secure", "accessibility_enabled", "1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("    [+] Balls: SYSTEM_ALERT_WINDOW, WRITE_SETTINGS & Accessibility granted.")
+        subprocess.run([adb_exe, "-s", device, "shell", "am", "start", "-n", f"{pkg_ball}/.ui.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1.0)
 
-    print("[*] Granting special permissions to Balls via ADB...")
-    # 1. Overlay (floating window)
-    subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", pkg, "SYSTEM_ALERT_WINDOW", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    # 2. Write Settings
-    subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", pkg, "WRITE_SETTINGS", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    # 3. Accessibility Service (provides hardware-like Back, Home, Recents functions)
-    subprocess.run([adb_exe, "-s", device, "shell", "settings", "put", "secure", "enabled_accessibility_services", svc], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run([adb_exe, "-s", device, "shell", "settings", "put", "secure", "accessibility_enabled", "1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    print("    [+] SYSTEM_ALERT_WINDOW granted.")
-    print("    [+] WRITE_SETTINGS granted.")
-    print("    [+] Accessibility Service enabled.")
+    # Android Auto permissions
+    pkg_aa = "com.asjohn720.androidauto"
+    if "Android Auto" in apks and os.path.isfile(apks["Android Auto"]):
+        print("[*] Granting permissions to Android Auto (OpenHeadUnit) via ADB...")
+        subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", pkg_aa, "SYSTEM_ALERT_WINDOW", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", pkg_aa, "WRITE_SETTINGS", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "pm", "grant", pkg_aa, "android.permission.RECORD_AUDIO"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "pm", "grant", pkg_aa, "android.permission.ACCESS_FINE_LOCATION"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "pm", "grant", pkg_aa, "android.permission.ACCESS_COARSE_LOCATION"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "pm", "grant", pkg_aa, "android.permission.READ_EXTERNAL_STORAGE"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "pm", "grant", pkg_aa, "android.permission.WRITE_EXTERNAL_STORAGE"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "appops", "set", pkg_aa, "MANAGE_EXTERNAL_STORAGE", "allow"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "pm", "grant", pkg_aa, "android.permission.NEARBY_WIFI_DEVICES"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "pm", "grant", pkg_aa, "android.permission.BLUETOOTH_CONNECT"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([adb_exe, "-s", device, "shell", "pm", "grant", pkg_aa, "android.permission.BLUETOOTH_SCAN"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("    [+] Android Auto: Mic, Location, Overlay, Storage & Bluetooth granted.")
 
-    print("[*] Initializing Balls overlay...")
-    subprocess.run([adb_exe, "-s", device, "shell", "am", "start", "-n", f"{pkg}/.ui.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    time.sleep(1.2)
-
-    print("[*] Bringing Ola Home Dashboard (com.olaelectric.hmiclient) to front...")
+    print("[*] Bringing Dashboard Home to front...")
     subprocess.run([adb_exe, "-s", device, "shell", "am", "start", "-n", "com.olaelectric.hmiclient/.MainActivity"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run([adb_exe, "-s", device, "shell", "input", "keyevent", "3"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    print("    [+] Scooter returned to speedometer home screen.")
+    print("    [+] Scooter returned to speedometer dashboard.")
 
 def main():
     print(BANNER)
@@ -288,35 +300,42 @@ def main():
     print_step(5, "Verifying Bundled Mod APK Packages")
     repo_dir = os.path.dirname(os.path.abspath(__file__))
     apks_dir = os.path.join(repo_dir, "apks")
-    qb_apk = os.path.join(apks_dir, "balls-1.0.0-lite-release.apk")
-    sq_apk = os.path.join(apks_dir, "musicmod-release.apk")
 
-    if not os.path.isfile(qb_apk):
-        print(f"[!] Error: Missing APK at {qb_apk}")
-        sys.exit(1)
-    if not os.path.isfile(sq_apk):
-        print(f"[!] Error: Missing APK at {sq_apk}")
+    apks_to_install = {
+        "Balls Navigation": os.path.join(apks_dir, "balls-1.0.0-lite-release.apk"),
+        "Music Mod": os.path.join(apks_dir, "musicmod-release.apk"),
+        "Android Auto": os.path.join(apks_dir, "com.asjohn720.androidauto.apk"),
+        "Via Browser": os.path.join(apks_dir, "via-release.apk")
+    }
+
+    if not os.path.isfile(apks_to_install["Balls Navigation"]):
+        print(f"[!] Error: Mandatory APK missing at {apks_to_install['Balls Navigation']}")
         sys.exit(1)
 
-    print(f"    [+] Found: {os.path.basename(qb_apk)} ({os.path.getsize(qb_apk)/1024/1024:.2f} MB)")
-    print(f"    [+] Found: {os.path.basename(sq_apk)} ({os.path.getsize(sq_apk)/1024/1024:.2f} MB)")
+    for name, path in apks_to_install.items():
+        if os.path.isfile(path):
+            print(f"    [+] Found: {os.path.basename(path)} ({os.path.getsize(path)/1024/1024:.2f} MB)")
+        else:
+            print(f"    [-] Optional APK not found: {os.path.basename(path)} (skipping)")
 
     # Step 6: Install & Configure
     print_step(6, "Installing Modded Apps & Granting Permissions")
-    install_and_grant(device, adb_exe, qb_apk, sq_apk)
+    install_and_grant(device, adb_exe, apks_to_install)
 
     # Completion Banner & User Guide
     print("\n" + "=" * 72)
     print("         CONGRATULATIONS! ALL MODS INSTALLED SUCCESSFULLY!       ")
     print("=" * 72)
-    print("\n[+] Scooter display is now back on your Ola Home Dashboard.")
+    print("\n[+] Scooter display is now back on your Speedometer Dashboard.")
     print("[+] Balls navigation overlay is active and ready to use!")
     print("\n>>> HOW TO USE YOUR NEW MODS:")
     print("  Tap the floating ball on your screen anytime to access:")
     print("    * Back          -> Instant Back button inside any app")
-    print("    * Home          -> Instant return to Ola Speedometer Dashboard")
+    print("    * Home          -> Instant return to Speedometer Dashboard")
     print("    * Settings      -> Direct access to Android Settings (Wi-Fi, Bluetooth, etc.)")
-    print("    * Music Mod -> Ad-free streaming & offline music playback")
+    print("    * Music Mod     -> Ad-free streaming & offline music playback")
+    print("    * Android Auto  -> OpenHeadUnit projection")
+    print("    * Via Browser   -> Lightweight web browsing")
     print("\nNo manual configuration required - everything is ready to enjoy!")
     print("=" * 72)
 

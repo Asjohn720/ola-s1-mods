@@ -1,4 +1,4 @@
-package com.asjohn720.olamods
+package com.asjohn720.s1mods
 
 import android.Manifest
 import android.content.Intent
@@ -27,12 +27,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.asjohn720.olamods.model.ScooterManager
-import com.asjohn720.olamods.ui.screens.CustomApkScreen
-import com.asjohn720.olamods.ui.screens.SetupScreen
-import com.asjohn720.olamods.ui.screens.ShellScreen
-import com.asjohn720.olamods.ui.screens.ToolboxScreen
-import com.asjohn720.olamods.ui.theme.*
+import com.asjohn720.s1mods.model.ScooterManager
+import com.asjohn720.s1mods.ui.screens.CustomApkScreen
+import com.asjohn720.s1mods.ui.screens.SetupScreen
+import com.asjohn720.s1mods.ui.screens.ShellScreen
+import com.asjohn720.s1mods.ui.screens.ToolboxScreen
+import com.asjohn720.s1mods.ui.theme.*
 
 enum class AppTab(val title: String, val icon: ImageVector) {
     SETUP("Setup", Icons.Default.Bolt),
@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
         scooterManager = ScooterManager(applicationContext)
 
         setContent {
-            OlaModsTheme {
+            S1ModsTheme {
                 MainAppScaffold(scooterManager)
             }
         }
