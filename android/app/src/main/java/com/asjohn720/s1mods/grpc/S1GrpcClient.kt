@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.InputStream
+import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
@@ -40,40 +41,51 @@ class S1GrpcClient(
     }
 
     /**
-     * Formats target host for OkHttpChannelBuilder.
+     * Resolves and normalizes the target host for OkHttpChannelBuilder.forAddress.
      */
-    fun formattedTarget(): String {
+    fun resolveTargetHost(): String {
         var h = host.trim()
-        if (h.lowercase().startsWith("ipv6:")) {
+        if (h.startsWith("ipv6:", ignoreCase = true)) {
             h = h.substring(5).trim()
         }
-        h = h.trim('[', ']')
-        if (h.contains("]")) {
-            h = h.split("]")[0].trimStart('[')
+        if (h.startsWith("//")) {
+            h = h.substring(2).trim()
+        }
+        // Strip outer brackets if present (e.g. [fe80::1]:50005 or [fe80::1])
+        if (h.startsWith("[") && h.contains("]")) {
+            h = h.substringAfter("[").substringBefore("]")
+        } else if (h.contains(":") && !h.contains("::")) {
+            // IPv4 with port, e.g. 192.168.43.100:50005
+            h = h.substringBefore(":")
         }
 
-        if (h.count { it == ':' } >= 2) {
-            // IPv6 Address
-            if (h.lowercase().startsWith("fe80") && !h.contains("%")) {
-                if (scope != null) {
-                    h = "$h%$scope"
-                }
-            }
-            if (h.contains("%") && !h.contains("%25")) {
-                h = h.replace("%", "%25")
-            }
-            return "ipv6:[$h]:$port"
+        // Unescape %25 if present
+        h = h.replace("%25", "%")
+
+        // If fe80 link-local and missing scope, append scope if available
+        if (h.startsWith("fe80", ignoreCase = true) && !h.contains("%") && scope != null) {
+            h = "$h%$scope"
         }
-        return "$h:$port"
+
+        return try {
+            InetAddress.getByName(h).hostAddress ?: h
+        } catch (_: Exception) {
+            h
+        }
     }
 
     /**
-     * Connects and verifies channel responsiveness.
+     * Formats target host for display or logging.
+     */
+    fun formattedTarget(): String = "${resolveTargetHost()}:$port"
+
+    /**
+     * Connects and verifies channel responsiveness using OkHttpChannelBuilder.forAddress.
      */
     suspend fun connect(timeoutSeconds: Long = 6L) = withContext(Dispatchers.IO) {
-        val target = formattedTarget()
+        val targetHost = resolveTargetHost()
         channel?.shutdownNow()
-        val ch = OkHttpChannelBuilder.forTarget(target)
+        val ch = OkHttpChannelBuilder.forAddress(targetHost, port)
             .usePlaintext()
             .maxInboundMessageSize(64 * 1024 * 1024)
             .build()
@@ -82,7 +94,7 @@ class S1GrpcClient(
         // Quick connectivity check using simple id -u
         val (status, out) = executeRaw("id -u", timeoutSeconds)
         if (status !in 0..1 && out.isEmpty()) {
-            throw IllegalStateException("No answer from scooter port $port at $target")
+            throw IllegalStateException("No answer from scooter port $port at $targetHost")
         }
     }
 

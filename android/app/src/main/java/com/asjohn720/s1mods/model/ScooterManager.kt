@@ -15,11 +15,10 @@ import java.io.FileOutputStream
 
 enum class SetupStep(val stepNum: Int, val title: String) {
     VERIFY_CONNECTION(1, "Detect Scooter & Connect"),
-    PRE_CHECK_AND_WAKE(2, "Display Wake & Pre-Check"),
-    UNLOCK_ADB(3, "In-Memory ADB Unlock"),
-    INSTALL_APKS(4, "Install Selected Mod APKs"),
-    GRANT_PERMISSIONS(5, "Grant System Permissions"),
-    FINALIZE_HOME(6, "Initialize & Return to Home")
+    UNLOCK_ADB(2, "In-Memory ADB Unlock"),
+    INSTALL_APKS(3, "Install Selected Mod APKs"),
+    GRANT_PERMISSIONS(4, "Grant System Permissions"),
+    FINALIZE_HOME(5, "Initialize & Return to Home")
 }
 
 enum class ModApp(
@@ -168,12 +167,12 @@ class ScooterManager(private val context: Context) {
         try {
             // Step 1: Verify Connection
             currentStep.value = SetupStep.VERIFY_CONNECTION
-            log("\n[1/6] Verifying connection to vehicle...")
+            log("\n[1/5] Verifying connection to vehicle...")
             if (scooterIp.value.isBlank()) {
                 log("[*] No address entered. Attempting auto-discovery...")
                 val found = autoDiscover()
                 if (found == null || scooterIp.value.isBlank()) {
-                    throw IllegalStateException("No vehicle detected. Please tap 'Scan' or edit to enter your scooter's IP/MAC address.")
+                    throw IllegalStateException("No vehicle detected. Please tap 'Auto Scan' or use Manual Mode to enter your scooter's IP/MAC address.")
                 }
             }
             if (grpcClient == null || !isConnected.value) {
@@ -181,15 +180,9 @@ class ScooterManager(private val context: Context) {
             }
             log("[+] gRPC link confirmed alive.")
 
-            // Step 2: Wake & Pre-Check
-            currentStep.value = SetupStep.PRE_CHECK_AND_WAKE
-            log("\n[2/6] Waking display...")
-            grpcClient?.wakeScreen()
-            log("[+] Screen awake. Ensure side stand is UP and screen stays active.")
-
-            // Step 3: Unlock ADB (In-Memory RAM Bind Mount)
+            // Step 2: Unlock ADB (In-Memory RAM Bind Mount)
             currentStep.value = SetupStep.UNLOCK_ADB
-            log("\n[3/6] Authorizing ADB key via in-memory RAM mount...")
+            log("\n[2/5] Authorizing ADB key via in-memory RAM mount...")
             val (_, pubKey) = adbManager.getOrCreateAdbKeyPair()
             val unlocked = grpcClient?.unlockAdb(pubKey) ?: false
             if (!unlocked) {
@@ -199,9 +192,9 @@ class ScooterManager(private val context: Context) {
             adbManager.connect(scooterIp.value, 5555)
             log("[+] ADB connected successfully as 'device'!")
 
-            // Step 4: Extract and Install Chosen APKs
+            // Step 3: Extract and Install Chosen APKs
             currentStep.value = SetupStep.INSTALL_APKS
-            log("\n[4/6] Installing selected Mod APKs...")
+            log("\n[3/5] Installing selected Mod APKs...")
 
             for (app in selectedApps) {
                 val isInstalled = adbManager.isPackageInstalled(app.packageName)
@@ -215,9 +208,9 @@ class ScooterManager(private val context: Context) {
                 installAssetApk(app.assetFileName, app.displayName)
             }
 
-            // Step 5: Grant Permissions
+            // Step 4: Grant Permissions
             currentStep.value = SetupStep.GRANT_PERMISSIONS
-            log("\n[5/6] Granting required permissions via ADB...")
+            log("\n[4/5] Granting required permissions via ADB...")
             if (selectedApps.contains(ModApp.BALLS)) {
                 log("[*] Configuring Balls Navigation (Overlay, Settings & Accessibility)...")
                 adbManager.grantBallPermissions()
@@ -230,9 +223,9 @@ class ScooterManager(private val context: Context) {
                 log("[+] Android Auto permissions granted.")
             }
 
-            // Step 6: Finalize & Return to Home
+            // Step 5: Finalize & Return to Home
             currentStep.value = SetupStep.FINALIZE_HOME
-            log("\n[6/6] Returning vehicle to Dashboard Home...")
+            log("\n[5/5] Returning vehicle to Dashboard Home...")
             openDashboardHome()
 
             log("\n==================================================")

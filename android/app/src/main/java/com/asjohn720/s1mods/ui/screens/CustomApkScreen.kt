@@ -68,7 +68,7 @@ fun CustomApkScreen(manager: ScooterManager) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Custom Package Installer",
+            text = "App Manager",
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             color = TextMuted

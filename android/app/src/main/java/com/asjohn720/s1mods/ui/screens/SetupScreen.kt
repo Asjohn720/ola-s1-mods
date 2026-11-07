@@ -1,60 +1,95 @@
 package com.asjohn720.s1mods.ui.screens
 
 import android.widget.Toast
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.asjohn720.s1mods.discovery.NetworkScanner
 import com.asjohn720.s1mods.model.ModApp
 import com.asjohn720.s1mods.model.ScooterManager
 import com.asjohn720.s1mods.model.SetupStep
+import com.asjohn720.s1mods.ui.components.VehicleConnectionCard
 import com.asjohn720.s1mods.ui.theme.*
 import kotlinx.coroutines.launch
+
+enum class SetupSubTab(val title: String) {
+    SETUP("Setup & Vehicle"),
+    LOGS("Live Terminal")
+}
 
 @Composable
 fun SetupScreen(manager: ScooterManager) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
+
     val scooterIp by manager.scooterIp.collectAsState()
     val scooterScope by manager.scooterScope.collectAsState()
     val isConnected by manager.isConnected.collectAsState()
     val currentStep by manager.currentStep.collectAsState()
     val isRunning by manager.isSetupRunning.collectAsState()
     val success by manager.setupSuccess.collectAsState()
+    val errorMessage by manager.errorMessage.collectAsState()
     val logs by manager.logs.collectAsState()
 
-    var showEditDialog by remember { mutableStateOf(false) }
-    var showPreFlightDialog by remember { mutableStateOf(false) }
-    var tempInput by remember { mutableStateOf(scooterIp) }
-    var tempScope by remember { mutableStateOf(scooterScope?.toString() ?: "") }
-    var isTestingPort by remember { mutableStateOf(false) }
+    var activeSubTab by remember { mutableStateOf(SetupSubTab.SETUP) }
+    var showSetupPackageDialog by remember { mutableStateOf(false) }
 
     // App selection state for setup: Balls, Android Auto, Music Mod checked by default
     var selectedApps by remember { mutableStateOf(ModApp.values().toSet()) }
+    var isStepsExpanded by remember { mutableStateOf(true) }
+    var logFilter by remember { mutableStateOf("ALL") }
 
-    val listState = rememberLazyListState()
+    val terminalListState = rememberLazyListState()
 
-    LaunchedEffect(logs.size) {
-        if (logs.isNotEmpty()) {
-            listState.animateScrollToItem(logs.size - 1)
+    // Filter logs according to active filter chip
+    val filteredLogs = remember(logs, logFilter) {
+        when (logFilter) {
+            "SUCCESS" -> logs.filter { it.contains("[+]") || it.contains("SUCCESS") || it.contains("CONGRATULATIONS") }
+            "ERRORS" -> logs.filter { it.contains("[!]") || it.contains("failed") || it.contains("ERROR") }
+            "INFO" -> logs.filter { it.contains("[*]") }
+            else -> logs
+        }
+    }
+
+    // Auto-scroll terminal on new log lines
+    LaunchedEffect(filteredLogs.size) {
+        if (filteredLogs.isNotEmpty()) {
+            terminalListState.animateScrollToItem(filteredLogs.size - 1)
+        }
+    }
+
+    // Auto-expand steps when setup is active
+    LaunchedEffect(isRunning) {
+        if (isRunning) {
+            isStepsExpanded = true
         }
     }
 
@@ -62,412 +97,655 @@ fun SetupScreen(manager: ScooterManager) {
         modifier = Modifier
             .fillMaxSize()
             .background(BgDark)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Connection & Scooter IP Card
-        Card(
+        // Top Segmented Bar: Switch between Setup Controls & Dedicated Live Terminal
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-            shape = RoundedCornerShape(12.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(SurfaceDark)
+                .border(1.dp, CardBorder, RoundedCornerShape(10.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            // Setup & Vehicle SubTab
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (activeSubTab == SetupSubTab.SETUP) SurfaceVariantDark else SurfaceDark)
+                    .clickable { activeSubTab = SetupSubTab.SETUP }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = if (activeSubTab == SetupSubTab.SETUP) AccentMint else TextMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Setup & Vehicle",
+                        fontSize = 12.sp,
+                        fontWeight = if (activeSubTab == SetupSubTab.SETUP) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (activeSubTab == SetupSubTab.SETUP) TextPrimary else TextMuted
+                    )
+                }
+            }
+
+            // Live Terminal SubTab
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (activeSubTab == SetupSubTab.LOGS) SurfaceVariantDark else SurfaceDark)
+                    .clickable { activeSubTab = SetupSubTab.LOGS }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Terminal,
+                        contentDescription = null,
+                        tint = if (activeSubTab == SetupSubTab.LOGS) AccentSky else TextMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Live Console",
+                        fontSize = 12.sp,
+                        fontWeight = if (activeSubTab == SetupSubTab.LOGS) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (activeSubTab == SetupSubTab.LOGS) TextPrimary else TextMuted
+                    )
+                    if (logs.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isRunning) AccentSkySubtle else SurfaceHighlight)
+                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = "${logs.size}",
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = if (isRunning) AccentSky else TextSecondary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // View 1: Setup & Connection Wizard (Fully Scroll-Safe to eliminate clipping)
+        if (activeSubTab == SetupSubTab.SETUP) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Connection & Scooter IP Card (Exact same card available on startup)
+                VehicleConnectionCard(
+                    manager = manager,
+                    isRunning = isRunning
+                )
+
+                // Active Setup Status / Start Action Button
+                if (isRunning) {
+                    // Running Progress Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, AccentMintSubtle, RoundedCornerShape(12.dp)),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = AccentMint, strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "Setup in Progress...",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TextPrimary
+                                    )
+                                }
+                                Text(
+                                    text = "Step ${currentStep?.stepNum ?: 1} of 5",
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = AccentMint,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            val progressFraction = ((currentStep?.stepNum ?: 1) / 5f)
+                            LinearProgressIndicator(
+                                progress = { progressFraction },
+                                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                                color = AccentMint,
+                                trackColor = SurfaceVariantDark
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = currentStep?.title ?: "Processing...",
+                                    fontSize = 11.sp,
+                                    color = AccentSky,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                TextButton(
+                                    onClick = { activeSubTab = SetupSubTab.LOGS },
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                                ) {
+                                    Text("View Terminal →", fontSize = 11.sp, color = AccentMint)
+                                }
+                            }
+                        }
+                    }
+                } else if (success) {
+                    // Success Banner Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, AccentMint, RoundedCornerShape(12.dp)),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentMint, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Setup Successfully Completed!", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AccentMint)
+                                    Text("All chosen mods are now active on your vehicle.", fontSize = 11.sp, color = TextSecondary)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = { showSetupPackageDialog = true },
+                                modifier = Modifier.fillMaxWidth().height(40.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark)
+                            ) {
+                                Text("Re-Run Automated Setup", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                } else if (errorMessage != null) {
+                    // Error Banner Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, StatusDanger, RoundedCornerShape(12.dp)),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(verticalAlignment = Alignment.Top) {
+                                Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = StatusDanger, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Setup Failed", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = StatusDanger)
+                                    Text(errorMessage ?: "Unknown error", fontSize = 11.sp, color = TextPrimary)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = { showSetupPackageDialog = true },
+                                    modifier = Modifier.weight(1f).height(38.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = StatusDanger, contentColor = TextPrimary)
+                                ) {
+                                    Text("Retry Setup", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                                OutlinedButton(
+                                    onClick = { activeSubTab = SetupSubTab.LOGS },
+                                    modifier = Modifier.weight(1f).height(38.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorder))
+                                ) {
+                                    Text("Inspect Error Log", fontSize = 12.sp, color = TextSecondary)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Idle: Start Setup CTA Button (opens package selection popup)
+                    Button(
+                        onClick = {
+                            showSetupPackageDialog = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AccentMint,
+                            contentColor = BgDark
+                        )
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Start Automated Setup",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                // Setup Steps Progress Accordion
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isStepsExpanded = !isStepsExpanded },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Installation Sequence (5 Steps)",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = TextMuted
+                            )
+                            Icon(
+                                imageVector = if (isStepsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = "Toggle",
+                                tint = TextMuted,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        if (isStepsExpanded) {
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            SetupStep.values().forEach { step ->
+                                val isDone = currentStep != null && (step.stepNum < (currentStep?.stepNum ?: 0) || success)
+                                val isCurrent = currentStep == step && isRunning
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                when {
+                                                    isDone -> AccentMintSubtle
+                                                    isCurrent -> AccentSkySubtle
+                                                    else -> SurfaceVariantDark
+                                                }
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        when {
+                                            isDone -> Icon(Icons.Default.Check, contentDescription = null, tint = AccentMint, modifier = Modifier.size(13.dp))
+                                            isCurrent -> CircularProgressIndicator(modifier = Modifier.size(12.dp), color = AccentSky, strokeWidth = 2.dp)
+                                            else -> Text(text = "${step.stepNum}", fontSize = 10.sp, color = TextMuted)
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = step.title,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = when {
+                                            isDone -> TextPrimary
+                                            isCurrent -> AccentSky
+                                            else -> TextMuted
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Live Console Snippet & Direct Link Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { activeSubTab = SetupSubTab.LOGS }
+                        .border(1.dp, TerminalBorder, RoundedCornerShape(12.dp)),
+                    colors = CardDefaults.cardColors(containerColor = TerminalBg),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isRunning) AccentSky else AccentMint)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Console Stream (${logs.size} lines)",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = TextMuted
+                                )
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Open Full Terminal",
+                                    fontSize = 11.sp,
+                                    color = AccentSky,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = AccentSky, modifier = Modifier.size(13.dp))
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (logs.isEmpty()) {
+                            Text(
+                                text = "Terminal idle. Connect vehicle and start setup to view execution logs.",
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = TextMuted
+                            )
+                        } else {
+                            val lastLogs = logs.takeLast(4)
+                            lastLogs.forEach { line ->
+                                val color = when {
+                                    line.contains("[+]") || line.contains("SUCCESS") -> AccentMint
+                                    line.contains("[!]") || line.contains("failed") -> StatusDanger
+                                    line.contains("[*]") -> AccentSky
+                                    else -> TextSecondary
+                                }
+                                Text(
+                                    text = line,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = color,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        } else {
+            // View 2: Dedicated Full-Height Live Terminal Screen (Zero Clipping, Full Visibility)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Header Bar: Quick Status, Copy, Clear
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Script Console",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isRunning) AccentSkySubtle else SurfaceVariantDark)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (isRunning) "ACTIVE" else "IDLE",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isRunning) AccentSky else TextMuted
+                                )
+                            }
+                        }
                         Text(
-                            text = "Target Vehicle",
+                            text = if (scooterIp.isNotBlank()) "Target: $scooterIp" else "Target: Disconnected",
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextMuted
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = if (scooterIp.isBlank()) "Tap Scan or enter IP manually" else if (scooterScope != null) "$scooterIp%$scooterScope" else scooterIp,
-                            fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Medium,
-                            color = if (scooterIp.isBlank()) TextMuted else TextPrimary
+                            color = TextMuted
                         )
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // Copy Button
                         IconButton(
                             onClick = {
-                                tempInput = scooterIp
-                                tempScope = scooterScope?.toString() ?: ""
-                                showEditDialog = true
-                            },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(SurfaceVariantDark)
-                        ) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit IP", tint = TextSecondary, modifier = Modifier.size(16.dp))
-                        }
-
-                        IconButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    val found = manager.autoDiscover()
-                                    if (found == null) {
-                                        Toast.makeText(context, "Vehicle not detected. Check Hotspot connected devices or enter MAC.", Toast.LENGTH_LONG).show()
-                                    } else {
-                                        Toast.makeText(context, "Found vehicle at ${found.ip}", Toast.LENGTH_SHORT).show()
-                                    }
+                                if (logs.isNotEmpty()) {
+                                    val full = logs.joinToString("\n")
+                                    clipboard.setText(AnnotatedString(full))
+                                    Toast.makeText(context, "All logs copied to clipboard", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(34.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(SurfaceVariantDark)
+                                .background(SurfaceDark)
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Scan", tint = TextSecondary, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = TextSecondary, modifier = Modifier.size(16.dp))
+                        }
+
+                        // Clear Button
+                        IconButton(
+                            onClick = { manager.clearLogs() },
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(SurfaceDark)
+                        ) {
+                            Icon(Icons.Default.DeleteOutline, contentDescription = "Clear", tint = TextSecondary, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = DividerColor, thickness = 1.dp)
-                Spacer(modifier = Modifier.height(12.dp))
-
+                // Filter Chips Row
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    val filters = listOf(
+                        "ALL" to "All (${logs.size})",
+                        "SUCCESS" to "Success",
+                        "ERRORS" to "Errors",
+                        "INFO" to "Info"
+                    )
+
+                    filters.forEach { (key, label) ->
+                        val isSelected = logFilter == key
                         Box(
                             modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(if (isConnected) AccentMint else StatusDanger)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isConnected) "MoveOS gRPC Online (Port 50005)" else "gRPC Service Offline",
-                            fontSize = 12.sp,
-                            color = if (isConnected) AccentMint else TextMuted
-                        )
-                    }
-
-                    TextButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                isTestingPort = true
-                                val open = manager.testConnection()
-                                isTestingPort = false
-                                Toast.makeText(
-                                    context,
-                                    if (open) "Port 50005 reachable" else "Port 50005 unreachable. Wake scooter screen.",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        },
-                        enabled = !isTestingPort,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        if (isTestingPort) {
-                            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp, color = TextSecondary)
-                        } else {
-                            Text("Test Port", fontSize = 12.sp, color = AccentSky)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (isSelected) AccentSkySubtle else SurfaceDark)
+                                .border(1.dp, if (isSelected) AccentSky else CardBorder, RoundedCornerShape(6.dp))
+                                .clickable { logFilter = key }
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (isSelected) AccentSky else TextSecondary
+                            )
                         }
                     }
                 }
-            }
-        }
 
-        // Start Setup Action Button
-        Button(
-            onClick = {
-                showPreFlightDialog = true
-            },
-            enabled = !isRunning,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = AccentMint,
-                contentColor = BgDark,
-                disabledContainerColor = SurfaceVariantDark,
-                disabledContentColor = TextMuted
-            )
-        ) {
-            if (isRunning) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = BgDark, strokeWidth = 2.dp)
-                Spacer(modifier = Modifier.width(10.dp))
-                Text("Installing Mods...", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            } else {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Start Automated Setup", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        // Setup Steps Progress Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Installation Steps",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = TextMuted
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-
-                SetupStep.values().forEach { step ->
-                    val isDone = currentStep != null && (step.stepNum < (currentStep?.stepNum ?: 0) || success)
-                    val isCurrent = currentStep == step && isRunning
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                // Dedicated Full Terminal Window
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .border(1.dp, TerminalBorder, RoundedCornerShape(12.dp)),
+                    colors = CardDefaults.cardColors(containerColor = TerminalBg),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (filteredLogs.isEmpty()) {
                         Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    when {
-                                        isDone -> AccentMintSubtle
-                                        isCurrent -> AccentSkySubtle
-                                        else -> SurfaceVariantDark
-                                    }
-                                ),
+                            modifier = Modifier.fillMaxSize().padding(20.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            when {
-                                isDone -> Icon(Icons.Default.Check, contentDescription = null, tint = AccentMint, modifier = Modifier.size(14.dp))
-                                isCurrent -> CircularProgressIndicator(modifier = Modifier.size(12.dp), color = AccentSky, strokeWidth = 2.dp)
-                                else -> Text(text = "${step.stepNum}", fontSize = 10.sp, color = TextMuted)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.Terminal, contentDescription = null, tint = TextMuted, modifier = Modifier.size(36.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = if (logs.isEmpty()) "No logs generated yet." else "No logs match current filter.",
+                                    fontSize = 12.sp,
+                                    color = TextMuted
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Start Automated Setup to see live step output.",
+                                    fontSize = 11.sp,
+                                    color = TextSecondary
+                                )
                             }
                         }
-
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = step.title,
-                            fontSize = 12.sp,
-                            fontWeight = if (isCurrent) FontWeight.Medium else FontWeight.Normal,
-                            color = when {
-                                isDone -> TextPrimary
-                                isCurrent -> AccentSky
-                                else -> TextMuted
+                    } else {
+                        SelectionContainer {
+                            LazyColumn(
+                                state = terminalListState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                items(filteredLogs) { logLine ->
+                                    val color = when {
+                                        logLine.contains("[+]") || logLine.contains("SUCCESS") || logLine.contains("CONGRATULATIONS") -> AccentMint
+                                        logLine.contains("[!]") || logLine.contains("failed") || logLine.contains("ERROR") -> StatusDanger
+                                        logLine.contains("[*]") -> AccentSky
+                                        logLine.startsWith("=") -> TextMuted
+                                        else -> TextSecondary
+                                    }
+                                    val fontWeight = when {
+                                        logLine.startsWith("[") && (logLine.contains("/5]") || logLine.contains("/6]")) -> FontWeight.Bold
+                                        logLine.startsWith("=") -> FontWeight.Normal
+                                        else -> FontWeight.Normal
+                                    }
+                                    Text(
+                                        text = logLine,
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = color,
+                                        fontWeight = fontWeight,
+                                        lineHeight = 16.sp
+                                    )
+                                }
                             }
-                        )
-                    }
-                }
-            }
-        }
-
-        // Live Log Terminal
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .border(1.dp, TerminalBorder, RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = TerminalBg),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Console Output",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextMuted
-                    )
-                    IconButton(onClick = { manager.clearLogs() }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = "Clear", tint = TextMuted, modifier = Modifier.size(16.dp))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    items(logs) { logLine ->
-                        val color = when {
-                            logLine.contains("[+]") || logLine.contains("SUCCESS") -> AccentMint
-                            logLine.contains("[!]") || logLine.contains("failed") -> StatusDanger
-                            logLine.contains("[*]") -> AccentSky
-                            else -> TextSecondary
                         }
-                        Text(
-                            text = logLine,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = color,
-                            lineHeight = 15.sp
-                        )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(4.dp))
             }
         }
     }
 
-    // Manual IP / MAC / Scope Edit Dialog
-    if (showEditDialog) {
-        val derivedIpv6 = remember(tempInput) {
-            NetworkScanner.macToIpv6(tempInput)
-        }
 
+
+    // 2. Package Selection & Pre-Check Dialog (triggered when clicking Start Automated Setup)
+    if (showSetupPackageDialog) {
         AlertDialog(
-            onDismissRequest = { showEditDialog = false },
-            title = { Text("Vehicle Address Configuration", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Enter scooter IPv6, IPv4 or MAC address from your phone's Hotspot > Connected devices:",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
-
-                    OutlinedTextField(
-                        value = tempInput,
-                        onValueChange = { tempInput = it },
-                        label = { Text("IPv6, IPv4 or MAC Address") },
-                        placeholder = { Text("e.g. aa:bb:cc:dd:ee:ff or IPv6") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentSky,
-                            unfocusedBorderColor = CardBorder,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-
-                    if (derivedIpv6 != null) {
-                        Text(
-                            text = "Derived IPv6: $derivedIpv6",
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = AccentMint
-                        )
-                    }
-
-                    OutlinedTextField(
-                        value = tempScope,
-                        onValueChange = { tempScope = it },
-                        label = { Text("Scope ID (optional, e.g. 22)") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentSky,
-                            unfocusedBorderColor = CardBorder,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val parsedScope = tempScope.toIntOrNull()
-                        val finalIp = derivedIpv6 ?: tempInput.trim()
-                        manager.scooterIp.value = finalIp
-                        manager.scooterScope.value = parsedScope
-                        showEditDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Apply Address", fontWeight = FontWeight.Medium)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditDialog = false }) {
-                    Text("Cancel", color = TextSecondary)
-                }
-            },
-            containerColor = SurfaceDark,
-            shape = RoundedCornerShape(12.dp)
-        )
-    }
-
-    // Pre-Flight Safety & App Selection Dialog
-    if (showPreFlightDialog) {
-        AlertDialog(
-            onDismissRequest = { showPreFlightDialog = false },
+            onDismissRequest = { showSetupPackageDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Tune, contentDescription = null, tint = AccentMint, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Setup Configuration", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(AccentMintSubtle),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentMint, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text("Automated Setup Configuration", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Choose mods to install on vehicle", color = TextSecondary, fontSize = 11.sp)
+                    }
                 }
             },
             text = {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Pre-flight notices
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(SurfaceVariantDark)
-                            .padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "• Side Stand UP: Sensor keeps vehicle systems active.",
-                            fontSize = 11.sp,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = "• Keep Screen Active: Tap screen during mods to prevent sleep.",
-                            fontSize = 11.sp,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = "• Auto-Lock Safe: Auto-lock security is never disabled.",
-                            fontSize = 11.sp,
-                            color = AccentSky
-                        )
-                    }
-
                     Text(
-                        text = "Choose applications to install:",
+                        text = "Packages to Install:",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary
                     )
 
-                    // App Selection Checkboxes (Total 4 apps)
-                    // App Selection Checkboxes (3 core apps)
+                    // ModApp Checkboxes
                     ModApp.values().forEach { app ->
                         val isChecked = selectedApps.contains(app)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(6.dp))
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(SurfaceVariantDark)
+                                .border(1.dp, CardBorder, RoundedCornerShape(8.dp))
                                 .clickable(enabled = !app.isMandatory) {
                                     selectedApps = if (isChecked) selectedApps - app else selectedApps + app
                                 }
-                                .padding(vertical = 4.dp),
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(
@@ -490,7 +768,7 @@ fun SetupScreen(manager: ScooterManager) {
                                 Text(
                                     text = app.displayName + if (app.isMandatory) " (Required)" else "",
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.SemiBold,
                                     color = if (app.isMandatory) AccentMint else TextPrimary
                                 )
                                 Text(
@@ -501,12 +779,49 @@ fun SetupScreen(manager: ScooterManager) {
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Pre-flight Reminders Card
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SurfaceVariantDark)
+                            .padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Pre-Check Guidelines:",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AccentSky
+                        )
+                        Text(
+                            text = "• Keep scooter side stand UP during installation.",
+                            fontSize = 11.sp,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "• Keep scooter screen awake (tap screen if needed).",
+                            fontSize = 11.sp,
+                            color = TextPrimary
+                        )
+                    }
+
+                    // Subtle, small disclaimer note as requested
+                    Text(
+                        text = "Notice: Use this app at your own risk.",
+                        fontSize = 10.sp,
+                        color = TextMuted,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        showPreFlightDialog = false
+                        showSetupPackageDialog = false
                         coroutineScope.launch {
                             manager.runFullSetup(selectedApps)
                         }
@@ -514,11 +829,11 @@ fun SetupScreen(manager: ScooterManager) {
                     colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Start Setup (${selectedApps.size} Apps)", fontWeight = FontWeight.Medium)
+                    Text("Confirm & Start Setup (${selectedApps.size} Mods)", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPreFlightDialog = false }) {
+                TextButton(onClick = { showSetupPackageDialog = false }) {
                     Text("Cancel", color = TextSecondary)
                 }
             },
