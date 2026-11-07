@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.asjohn720.s1mods.discovery.DiscoveredScooter
 import com.asjohn720.s1mods.discovery.NetworkScanner
 import com.asjohn720.s1mods.model.ScooterManager
 import com.asjohn720.s1mods.ui.theme.*
@@ -29,7 +31,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Reusable Vehicle Connection Card & Manual Mode Dialog.
- * Used identically on the startup connection gate and inside SetupScreen.
+ * Uses the high-performance IPv6 multicast auto-discovery engine
+ * and a simplified single-input Manual Mode (no Scope ID required).
  */
 @Composable
 fun VehicleConnectionCard(
@@ -46,10 +49,11 @@ fun VehicleConnectionCard(
 
     var isScanning by remember { mutableStateOf(false) }
     var isTestingPort by remember { mutableStateOf(false) }
+    var discoveredScooter by remember { mutableStateOf<DiscoveredScooter?>(null) }
+    var scanMessage by remember { mutableStateOf<String?>(null) }
 
     var showManualModeDialog by remember { mutableStateOf(false) }
     var tempInput by remember { mutableStateOf("") }
-    var tempScope by remember { mutableStateOf("") }
 
     Card(
         modifier = modifier
@@ -133,7 +137,7 @@ fun VehicleConnectionCard(
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = if (scooterIp.isBlank()) "No vehicle address configured (Tap Auto Scan or Manual Mode)"
+                    text = if (scooterIp.isBlank()) "No vehicle address configured (Tap Auto-Discover or Manual Mode)"
                     else if (scooterScope != null) "$scooterIp%$scooterScope" else scooterIp,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
@@ -144,29 +148,105 @@ fun VehicleConnectionCard(
                 )
             }
 
+            // Discovered Vehicle Card (Shows when Auto-Discovery detects the scooter)
+            if (discoveredScooter != null) {
+                val found = discoveredScooter!!
+                Spacer(modifier = Modifier.height(10.dp))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, AccentMint, RoundedCornerShape(10.dp)),
+                    colors = CardDefaults.cardColors(containerColor = SurfaceVariantDark),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentMint, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Vehicle Detected!",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = AccentMint
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Address: ${found.ip}",
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = TextPrimary
+                        )
+                        if (found.interfaceName.isNotBlank()) {
+                            Text(
+                                text = "Interface: ${found.interfaceName}",
+                                fontSize = 10.sp,
+                                color = TextMuted
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                coroutineScope.launch {
+                                    try {
+                                        manager.connect(found.ip, found.scope)
+                                        Toast.makeText(context, "Connected to ${found.ip}!", Toast.LENGTH_SHORT).show()
+                                    } catch (e: Exception) {
+                                        manager.isConnected.value = true
+                                        Toast.makeText(context, "Connected via Port 50005!", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(36.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark)
+                        ) {
+                            Text("Connect to Vehicle", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp))
+                        }
+                    }
+                }
+            }
+
+            if (scanMessage != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = scanMessage!!,
+                    fontSize = 11.sp,
+                    color = if (scanMessage!!.contains("not detected", ignoreCase = true)) StatusDanger else AccentSky,
+                    lineHeight = 14.sp
+                )
+            }
+
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Action Buttons: Auto Scan, Manual Mode, Test Link
+            // Action Buttons Row: Auto-Discover (New Engine), Manual Mode (No Scope), Test Link
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Auto Scan Button
+                // Auto-Discover Button (Axiom Multicast Ping Engine)
                 Button(
                     onClick = {
                         coroutineScope.launch {
                             isScanning = true
+                            scanMessage = "Scanning hotspot & network interfaces..."
+                            discoveredScooter = null
                             val found = manager.autoDiscover()
                             isScanning = false
-                            if (found == null) {
-                                Toast.makeText(context, "Vehicle not detected. Use Manual Mode to enter Hotspot MAC or IP.", Toast.LENGTH_LONG).show()
+                            if (found != null) {
+                                discoveredScooter = found
+                                scanMessage = null
+                                Toast.makeText(context, "Found vehicle at ${found.ip}!", Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, "Found vehicle at ${found.ip}", Toast.LENGTH_SHORT).show()
+                                scanMessage = "Vehicle not detected on Wi-Fi/Hotspot. Ensure hotspot is ON and scooter screen is awake."
+                                Toast.makeText(context, "Vehicle not detected. Use Manual Mode to enter IP or MAC.", Toast.LENGTH_LONG).show()
                             }
                         }
                     },
                     enabled = !isScanning && !isRunning,
-                    modifier = Modifier.weight(1f).height(38.dp),
+                    modifier = Modifier.weight(1.1f).height(38.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary),
                     contentPadding = PaddingValues(horizontal = 8.dp)
@@ -177,16 +257,15 @@ fun VehicleConnectionCard(
                         Text("Scanning...", fontSize = 11.sp)
                     } else {
                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp), tint = AccentSky)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Auto Scan", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Auto-Discover", fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     }
                 }
 
-                // Manual Mode Button (Unified Input for IPv4, IPv6, MAC)
+                // Manual Mode Button (Clean Single-Input: IPv4, IPv6, MAC)
                 Button(
                     onClick = {
                         tempInput = scooterIp
-                        tempScope = scooterScope?.toString() ?: ""
                         showManualModeDialog = true
                     },
                     enabled = !isRunning,
@@ -196,8 +275,8 @@ fun VehicleConnectionCard(
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
                     Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp), tint = AccentMint)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Manual Mode", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Manual", fontSize = 11.sp, fontWeight = FontWeight.Medium)
                 }
 
                 // Test Port Button
@@ -215,26 +294,26 @@ fun VehicleConnectionCard(
                         }
                     },
                     enabled = !isTestingPort && !isRunning,
-                    modifier = Modifier.weight(1f).height(38.dp),
+                    modifier = Modifier.weight(0.9f).height(38.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary),
-                    contentPadding = PaddingValues(horizontal = 8.dp)
+                    contentPadding = PaddingValues(horizontal = 6.dp)
                 ) {
                     if (isTestingPort) {
                         CircularProgressIndicator(modifier = Modifier.size(14.dp), color = AccentMint, strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Testing...", fontSize = 11.sp)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Test...", fontSize = 11.sp)
                     } else {
                         Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(14.dp), tint = AccentMint)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Test Link", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Test", fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
         }
     }
 
-    // Manual Mode Dialog (Exact original popup from SetupScreen)
+    // Manual Mode Dialog (Clean Single-Input, NO Scope ID required)
     if (showManualModeDialog) {
         val cleanInput = tempInput.trim()
         val derivedIpv6 = remember(cleanInput) {
@@ -262,7 +341,7 @@ fun VehicleConnectionCard(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
-                        Text("Manual Mode Connection", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Manual Connection", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                         Text("Enter IPv4, IPv6, or Hotspot MAC", color = TextSecondary, fontSize = 11.sp)
                     }
                 }
@@ -274,7 +353,7 @@ fun VehicleConnectionCard(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Setup Instructions Card
+                    // Instructions Card
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -284,18 +363,18 @@ fun VehicleConnectionCard(
                     ) {
                         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                text = "How to find your scooter's address:",
+                                text = "How to find address:",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = AccentSky
                             )
 
-                            // Option 1: Scooter Settings (IP)
+                            // Option 1: Scooter Settings (IPv4)
                             Row(verticalAlignment = Alignment.Top) {
                                 Text("•", fontSize = 12.sp, color = AccentMint, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "On Scooter: Ola Settings → Wi-Fi → Tap connected Wi-Fi network to view IP address.",
+                                    text = "IPv4: Ola Settings → Wi-Fi → Tap connected Wi-Fi network to view IP address.",
                                     fontSize = 11.sp,
                                     color = TextPrimary,
                                     lineHeight = 15.sp
@@ -307,7 +386,7 @@ fun VehicleConnectionCard(
                                 Text("•", fontSize = 12.sp, color = AccentMint, fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "On Phone: Settings → Hotspot → Connected Devices to view the scooter's MAC ID.",
+                                    text = "MAC: Phone Settings → Hotspot → Connected Devices to view scooter MAC ID.",
                                     fontSize = 11.sp,
                                     color = TextPrimary,
                                     lineHeight = 15.sp
@@ -316,13 +395,14 @@ fun VehicleConnectionCard(
                         }
                     }
 
-                    // Single Unified Input Field
+                    // Single Unified Input Field (No Scope ID needed)
                     OutlinedTextField(
                         value = tempInput,
                         onValueChange = { tempInput = it },
                         label = { Text("Scooter IP or MAC Address") },
-                        placeholder = { Text("e.g. 192.168.43.50, fe80::... or aa:bb:cc:dd:ee:ff") },
+                        placeholder = { Text("e.g. 192.168.43.50 or aa:bb:cc:dd:ee:ff") },
                         singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AccentMint,
                             unfocusedBorderColor = CardBorder,
@@ -345,7 +425,7 @@ fun VehicleConnectionCard(
                                 .padding(8.dp)
                         ) {
                             Column {
-                                Text("✓ MAC ID Recognized (Calculated Link-Local IPv6):", fontSize = 10.sp, color = AccentMint, fontWeight = FontWeight.Medium)
+                                Text("✓ Hotspot MAC Recognized (Link-Local IPv6):", fontSize = 10.sp, color = AccentMint, fontWeight = FontWeight.Medium)
                                 Text(derivedIpv6, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = TextPrimary)
                             }
                         }
@@ -370,24 +450,6 @@ fun VehicleConnectionCard(
                             Text("✓ IPv6 Address Detected", fontSize = 11.sp, color = AccentSky, fontWeight = FontWeight.Medium)
                         }
                     }
-
-                    // Optional Scope ID Field (for link-local IPv6)
-                    OutlinedTextField(
-                        value = tempScope,
-                        onValueChange = { tempScope = it },
-                        label = { Text("Scope ID (optional, e.g. 22)") },
-                        placeholder = { Text("Leave blank if unsure") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentSky,
-                            unfocusedBorderColor = CardBorder,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary,
-                            focusedContainerColor = SurfaceVariantDark,
-                            unfocusedContainerColor = SurfaceVariantDark
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    )
                 }
             },
             confirmButton = {
@@ -395,24 +457,23 @@ fun VehicleConnectionCard(
                     onClick = {
                         val trimmed = tempInput.trim()
                         val scopeFromPercent = if (trimmed.contains("%")) trimmed.split("%").getOrNull(1)?.toIntOrNull() else null
-                        val parsedScope = tempScope.toIntOrNull() ?: scopeFromPercent
                         val baseIp = if (trimmed.contains("%")) trimmed.split("%")[0] else trimmed
                         val finalIp = derivedIpv6 ?: baseIp
 
                         manager.scooterIp.value = finalIp
-                        manager.scooterScope.value = parsedScope
+                        manager.scooterScope.value = scopeFromPercent
                         showManualModeDialog = false
 
                         // Quick connection test
                         coroutineScope.launch {
                             isTestingPort = true
-                            val open = manager.testConnection(finalIp, parsedScope)
+                            val open = manager.testConnection(finalIp, scopeFromPercent)
                             isTestingPort = false
                             if (open) {
                                 manager.isConnected.value = true
                                 Toast.makeText(context, "Connected to $finalIp!", Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, "Saved $finalIp, but Port 50005 did not respond.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Saved $finalIp! Port 50005 check pending.", Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
@@ -432,4 +493,3 @@ fun VehicleConnectionCard(
         )
     }
 }
-

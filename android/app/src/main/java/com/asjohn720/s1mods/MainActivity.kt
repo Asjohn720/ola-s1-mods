@@ -318,28 +318,6 @@ fun MainAppScaffold(manager: ScooterManager) {
                         }
                     }
 
-                    // Credits & Acknowledgments
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, CardBorder, RoundedCornerShape(10.dp)),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceVariantDark),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "Acknowledgments & Research",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextMuted
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            CreditRow("Dev Vikram Singh (@itsmobsys)", "Core gRPC reverse-engineering research & ola.py")
-                            CreditRow("Chayan Mistry", "Quick Ball touch navigation overlay")
-                            CreditRow("Lelonio", "Square lightweight music player")
-                        }
-                    }
-
                     Text(
                         text = "Independent open-source utility under MIT License. Not affiliated with Ola Electric.",
                         fontSize = 11.sp,
@@ -484,13 +462,5 @@ fun SocialButton(label: String, url: String, context: android.content.Context, m
         colors = ButtonDefaults.buttonColors(containerColor = BgDark, contentColor = TextPrimary)
     ) {
         Text(label, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-fun CreditRow(name: String, role: String) {
-    Column(modifier = Modifier.padding(vertical = 3.dp)) {
-        Text(name, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
-        Text(role, fontSize = 10.sp, color = TextSecondary)
     }
 }

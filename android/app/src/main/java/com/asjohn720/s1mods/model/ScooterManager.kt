@@ -63,6 +63,12 @@ data class ScooterInfo(
     val scooterMode: String = ""
 )
 
+data class RamInfo(
+    val totalMb: Int,
+    val usedMb: Int,
+    val freeMb: Int
+)
+
 class ScooterManager(private val context: Context) {
 
     private val adbManager = AdbManager(context)
@@ -112,7 +118,6 @@ class ScooterManager(private val context: Context) {
         if (discovered != null) {
             scooterIp.value = discovered.ip
             scooterScope.value = discovered.scope
-            isConnected.value = true
             log("[+] Discovered Vehicle: ${discovered.ip} (Scope: ${discovered.scope ?: "none"}, Source: ${discovered.source})")
         } else {
             log("[!] Could not auto-detect vehicle on port 50005.")
@@ -263,30 +268,156 @@ class ScooterManager(private val context: Context) {
     }
 
     /**
-     * Installs any user-selected APK file from phone storage.
+     * Ensures ADB session is unlocked and connected.
      */
-    suspend fun installCustomApk(apkFile: File): String = withContext(Dispatchers.IO) {
-        val sizeMb = String.format("%.1f", apkFile.length() / (1024.0 * 1024.0))
-        log("[*] Installing custom APK: ${apkFile.name} ($sizeMb MB)...")
+    suspend fun ensureAdb(): Boolean = withContext(Dispatchers.IO) {
         if (grpcClient == null || !isConnected.value) {
             connect()
         }
         val (_, pubKey) = adbManager.getOrCreateAdbKeyPair()
         grpcClient?.unlockAdb(pubKey)
         adbManager.connect(scooterIp.value, 5555)
-        val res = adbManager.installApk(apkFile)
-        log("[+] Custom APK installed: $res")
+        true
+    }
+
+    /**
+     * Checks all currently installed packages on the vehicle.
+     */
+    suspend fun fetchInstalledPackages(): Set<String> = withContext(Dispatchers.IO) {
+        val packages = mutableSetOf<String>()
+        try {
+            if (grpcClient != null && isConnected.value) {
+                val (_, out) = grpcClient!!.shell("pm list packages", 10L)
+                out.lines().forEach { line ->
+                    val trimmed = line.trim()
+                    if (trimmed.startsWith("package:")) {
+                        packages.add(trimmed.removePrefix("package:").trim())
+                    }
+                }
+            } else if (isConnected.value) {
+                val out = adbManager.shell("pm list packages")
+                out.lines().forEach { line ->
+                    val trimmed = line.trim()
+                    if (trimmed.startsWith("package:")) {
+                        packages.add(trimmed.removePrefix("package:").trim())
+                    }
+                }
+            }
+            if (packages.isNotEmpty()) {
+                log("[+] Checked packages: ${packages.size} packages installed on vehicle.")
+            }
+        } catch (e: Exception) {
+            log("[!] Could not inspect packages: ${e.message}")
+        }
+        packages
+    }
+
+    /**
+     * Installs a single bundled ModApp from assets and automatically applies its permissions.
+     */
+    suspend fun installSingleModApp(app: ModApp): String = withContext(Dispatchers.IO) {
+        log("[*] Installing ${app.displayName} (${app.packageName})...")
+        ensureAdb()
+
+        if (adbManager.isPackageInstalled(app.packageName)) {
+            log("[*] Clean uninstalling previous version...")
+            adbManager.uninstallPackage(app.packageName)
+        }
+
+        installAssetApk(app.assetFileName, app.displayName)
+
+        // Automatically apply required permissions
+        when (app) {
+            ModApp.BALLS -> {
+                log("[*] Configuring Balls Navigation overlay & permissions...")
+                adbManager.grantBallPermissions()
+                log("[+] Balls permissions configured.")
+            }
+            ModApp.ANDROID_AUTO -> {
+                log("[*] Configuring Android Auto permissions...")
+                adbManager.grantAndroidAutoPermissions()
+                log("[+] Android Auto permissions configured.")
+            }
+            ModApp.MUSIC -> {
+                log("[*] Configuring Music Mod permissions...")
+                try {
+                    adbManager.shell("pm grant ${app.packageName} android.permission.READ_EXTERNAL_STORAGE")
+                } catch (_: Exception) {}
+                log("[+] Music Mod configured.")
+            }
+        }
+        log("[+] ${app.displayName} installed and configured successfully!")
+        "Installed"
+    }
+
+    /**
+     * Uninstalls any package cleanly from the vehicle.
+     */
+    suspend fun uninstallPackage(packageName: String): String = withContext(Dispatchers.IO) {
+        log("[*] Uninstalling $packageName...")
+        ensureAdb()
+        val res = adbManager.uninstallPackage(packageName)
+        log("[+] Uninstall result: $res")
         res
     }
+
+    /**
+     * Installs an APK from local file storage onto the vehicle.
+     */
+    suspend fun installApkFile(file: File, friendlyName: String = file.name): String = withContext(Dispatchers.IO) {
+        val sizeMb = String.format("%.1f", file.length() / (1024.0 * 1024.0))
+        log("[*] Installing $friendlyName ($sizeMb MB)...")
+        ensureAdb()
+        val res = adbManager.installApk(file)
+        log("[+] Installed $friendlyName: $res")
+        res
+    }
+
+    /**
+     * Launches an app on the scooter display via ADB intent.
+     */
+    suspend fun openApp(packageName: String, friendlyName: String = packageName): Boolean = withContext(Dispatchers.IO) {
+        log("[*] Launching $friendlyName ($packageName) on scooter display...")
+        try {
+            ensureAdb()
+            val launchCmd = when (packageName) {
+                "com.asjohn720.ball" -> "am start -n com.asjohn720.ball/.ui.MainActivity"
+                else -> "monkey -p $packageName -c android.intent.category.LAUNCHER 1"
+            }
+            val out = adbManager.shell(launchCmd)
+            val isError = out.contains("No activities found") || out.contains("monkey aborted")
+            if (isError) {
+                log("[!] Could not launch $friendlyName via launcher: $out")
+                false
+            } else {
+                log("[+] $friendlyName launched successfully on screen.")
+                true
+            }
+        } catch (e: Exception) {
+            log("[!] Failed to launch $friendlyName: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Installs any user-selected APK file from phone storage.
+     */
+    suspend fun installCustomApk(apkFile: File): String = installApkFile(apkFile, apkFile.name)
 
     /**
      * Launches specific Android Settings screen on the scooter and returns execution confirmation.
      */
     suspend fun openSettings(action: String): Boolean = withContext(Dispatchers.IO) {
-        log("[*] Launching $action...")
+        log("[*] Launching settings: $action...")
         val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
         val (exitCode, _) = client.shell("am start -a $action", 15L)
-        exitCode in 0..1
+        val success = exitCode in 0..1
+        if (success) {
+            log("[+] Settings screen opened: $action")
+        } else {
+            log("[!] Could not open settings: $action (exit: $exitCode)")
+        }
+        success
     }
 
     /**
@@ -297,7 +428,11 @@ class ScooterManager(private val context: Context) {
         val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
         val (exitCode, _) = client.shell("am start -n com.olaelectric.hmiclient/.MainActivity", 15L)
         client.shell("input keyevent 3", 10L)
-        exitCode in 0..1
+        val success = exitCode in 0..1
+        if (success) {
+            log("[+] Speedometer Home dashboard active.")
+        }
+        success
     }
 
     suspend fun openOlaHome() = openDashboardHome()
@@ -308,6 +443,7 @@ class ScooterManager(private val context: Context) {
     suspend fun wakeScreen() = withContext(Dispatchers.IO) {
         log("[*] Waking vehicle display...")
         grpcClient?.wakeScreen()
+        log("[+] Display awake command sent.")
     }
 
     /**
@@ -316,29 +452,95 @@ class ScooterManager(private val context: Context) {
     suspend fun captureScreenshot(): Bitmap = withContext(Dispatchers.IO) {
         log("[*] Capturing vehicle display screenshot...")
         val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
-        client.takeScreenshot()
+        val bmp = client.takeScreenshot()
+        log("[+] Screenshot captured successfully (${bmp.width}x${bmp.height} px).")
+        bmp
     }
 
     /**
      * Executes arbitrary root shell command and returns output.
      */
     suspend fun runRootShell(command: String): String = withContext(Dispatchers.IO) {
+        log("[*] Root shell command: $command")
         val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
         val (_, out) = client.shell(command, 30L)
+        val preview = if (out.length > 200) out.take(200) + "..." else out
+        log("[+] Shell output: $preview")
         out
+    }
+
+    /**
+     * Reads /proc/meminfo from the scooter to calculate live Total, Used, and Free RAM.
+     */
+    suspend fun fetchRamInfo(): RamInfo? = withContext(Dispatchers.IO) {
+        try {
+            val output = if (grpcClient != null && isConnected.value) {
+                grpcClient!!.shell("cat /proc/meminfo", 8L).second
+            } else if (isConnected.value) {
+                adbManager.shell("cat /proc/meminfo")
+            } else {
+                ""
+            }
+            if (output.isBlank()) return@withContext null
+
+            var totalKb = 0L
+            var freeKb = 0L
+            var memFreeKb = 0L
+            var buffersKb = 0L
+            var cachedKb = 0L
+            var hasAvailable = false
+
+            output.lines().forEach { line ->
+                val parts = line.split(":")
+                if (parts.size >= 2) {
+                    val key = parts[0].trim()
+                    val value = parts[1].trim().split("\\s+".toRegex()).firstOrNull()?.toLongOrNull() ?: 0L
+                    when (key) {
+                        "MemTotal" -> totalKb = value
+                        "MemAvailable" -> {
+                            freeKb = value
+                            hasAvailable = true
+                        }
+                        "MemFree" -> memFreeKb = value
+                        "Buffers" -> buffersKb = value
+                        "Cached" -> cachedKb = value
+                    }
+                }
+            }
+
+            if (!hasAvailable) {
+                freeKb = memFreeKb + buffersKb + cachedKb
+            }
+
+            if (totalKb > 0) {
+                val totalMb = (totalKb / 1024).toInt()
+                val freeMb = (freeKb / 1024).toInt()
+                val usedMb = (totalMb - freeMb).coerceAtLeast(0)
+                val info = RamInfo(totalMb, usedMb, freeMb)
+                log("[+] Live RAM: Total ${totalMb} MB, Used ${usedMb} MB, Free ${freeMb} MB")
+                info
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
      * Fetches technical specifications and system properties of the vehicle.
      */
     suspend fun fetchScooterInfo(): ScooterInfo = withContext(Dispatchers.IO) {
+        log("[*] Querying vehicle hardware specs and MoveOS version...")
         val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
         val uid = client.shell("id -u").second.trim()
         val android = client.shell("getprop ro.build.version.release").second.trim()
         val build = client.shell("getprop ro.build.display.id").second.trim()
         val model = client.shell("getprop ro.product.model").second.trim()
         val mode = client.shell("getprop persist.ola.security.scootermode").second.trim()
-        ScooterInfo(uid = uid, androidVersion = android, buildId = build, model = model, scooterMode = mode)
+        val info = ScooterInfo(uid = uid, androidVersion = android, buildId = build, model = model, scooterMode = mode)
+        log("[+] Model: $model | MoveOS: $build | Android: $android | Root UID: $uid")
+        info
     }
 
     fun disconnect() {
