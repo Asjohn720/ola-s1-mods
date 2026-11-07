@@ -1,6 +1,7 @@
 package com.asjohn720.s1mods.ui.screens
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -46,9 +47,12 @@ fun SetupScreen(manager: ScooterManager) {
 
     var showEditDialog by remember { mutableStateOf(false) }
     var showPreFlightDialog by remember { mutableStateOf(false) }
+    var showStepsDialog by remember { mutableStateOf(false) }
+    var isFullscreenLog by remember { mutableStateOf(false) }
+
     var tempInput by remember { mutableStateOf(scooterIp) }
-    var tempScope by remember { mutableStateOf(scooterScope?.toString() ?: "") }
     var isTestingPort by remember { mutableStateOf(false) }
+    var isScanning by remember { mutableStateOf(false) }
 
     // App selection state for setup (Balls + Music)
     var selectedApps by remember { mutableStateOf(ModApp.values().toSet()) }
@@ -65,238 +69,280 @@ fun SetupScreen(manager: ScooterManager) {
         modifier = Modifier
             .fillMaxSize()
             .background(BgDark)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Connection & Scooter IP Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+        // Top Section: Collapsible when in Fullscreen Log Mode
+        AnimatedVisibility(visible = !isFullscreenLog) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Compact Target Vehicle Header Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, CardBorder, RoundedCornerShape(10.dp)),
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Target Vehicle",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextMuted
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = if (scooterIp.isBlank()) "Tap Scan or enter IP manually" else if (scooterScope != null) "$scooterIp%$scooterScope" else scooterIp,
-                            fontSize = 13.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Medium,
-                            color = if (scooterIp.isBlank()) TextMuted else TextPrimary
-                        )
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = {
-                                tempInput = scooterIp
-                                tempScope = scooterScope?.toString() ?: ""
-                                showEditDialog = true
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = AccentSky),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                            modifier = Modifier.height(34.dp)
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = "Manual IP", modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Manual IP", fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                        }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isConnected) AccentMint else StatusDanger)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = if (scooterIp.isBlank()) "No Scooter Connected" else if (scooterScope != null) "$scooterIp%$scooterScope" else scooterIp,
+                                        fontSize = 13.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (scooterIp.isBlank()) TextMuted else TextPrimary,
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = if (isConnected) "MoveOS gRPC Active (Port 50005)" else "Tap Scan or Manual IP to connect",
+                                        fontSize = 11.sp,
+                                        color = if (isConnected) AccentMint else TextMuted
+                                    )
+                                }
+                            }
 
-                        Button(
-                            onClick = {
-                                coroutineScope.launch {
-                                    val found = manager.autoDiscover()
-                                    if (found == null) {
-                                        Toast.makeText(context, "Vehicle not detected. Use 'Manual IP' to enter from scooter screen.", Toast.LENGTH_LONG).show()
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Button(
+                                    onClick = {
+                                        tempInput = scooterIp
+                                        showEditDialog = true
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = AccentSky),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Manual IP", modifier = Modifier.size(13.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Manual IP", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            isScanning = true
+                                            val found = manager.autoDiscover()
+                                            isScanning = false
+                                            if (found == null) {
+                                                Toast.makeText(context, "Scooter not detected. Use Manual IP to enter from scooter screen.", Toast.LENGTH_LONG).show()
+                                            } else {
+                                                Toast.makeText(context, "Connected to ${found.ip}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    },
+                                    enabled = !isScanning,
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = AccentMint),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                    modifier = Modifier.height(32.dp)
+                                ) {
+                                    if (isScanning) {
+                                        CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp, color = AccentMint)
                                     } else {
-                                        Toast.makeText(context, "Found vehicle at ${found.ip}", Toast.LENGTH_SHORT).show()
+                                        Icon(Icons.Default.Refresh, contentDescription = "Scan", modifier = Modifier.size(13.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Scan", fontSize = 11.sp, fontWeight = FontWeight.Medium)
                                     }
                                 }
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = AccentMint),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Scan", modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Scan", fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = DividerColor, thickness = 1.dp)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(if (isConnected) AccentMint else StatusDanger)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isConnected) "MoveOS gRPC Online (Port 50005)" else "gRPC Service Offline",
-                            fontSize = 12.sp,
-                            color = if (isConnected) AccentMint else TextMuted
-                        )
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    isTestingPort = true
-                                    manager.runNetworkDiagnostics()
-                                    isTestingPort = false
-                                }
-                            },
-                            enabled = !isTestingPort,
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text("Diagnose", fontSize = 12.sp, color = AccentMint)
+                            }
                         }
 
-                        TextButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    isTestingPort = true
-                                    val open = manager.testConnection()
-                                    isTestingPort = false
-                                    Toast.makeText(
-                                        context,
-                                        if (open) "Port 50005 reachable" else "Port 50005 unreachable. Check Diagnostics log.",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            },
-                            enabled = !isTestingPort,
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                        // Diagnostic Quick Actions Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (isTestingPort) {
-                                CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp, color = TextSecondary)
-                            } else {
-                                Text("Test Port", fontSize = 12.sp, color = AccentSky)
+                            Text(
+                                text = "Setup: Balls + Music Mod",
+                                fontSize = 10.sp,
+                                color = TextSecondary
+                            )
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "Diagnose",
+                                    fontSize = 11.sp,
+                                    color = AccentMint,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .clickable {
+                                            coroutineScope.launch {
+                                                manager.runNetworkDiagnostics()
+                                            }
+                                        }
+                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+
+                                Text(
+                                    text = if (isTestingPort) "Testing..." else "Test Port",
+                                    fontSize = 11.sp,
+                                    color = AccentSky,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .clickable(enabled = !isTestingPort) {
+                                            coroutineScope.launch {
+                                                isTestingPort = true
+                                                val open = manager.testConnection()
+                                                isTestingPort = false
+                                                Toast.makeText(
+                                                    context,
+                                                    if (open) "Port 50005 reachable" else "Port 50005 unreachable. Check log.",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        }
+                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+
+                                Text(
+                                    text = "View 6 Steps",
+                                    fontSize = 11.sp,
+                                    color = TextMuted,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .clickable { showStepsDialog = true }
+                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
                             }
                         }
                     }
                 }
-            }
-        }
 
-        // Start Setup Action Button
-        Button(
-            onClick = {
-                showPreFlightDialog = true
-            },
-            enabled = !isRunning,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = AccentMint,
-                contentColor = BgDark,
-                disabledContainerColor = SurfaceVariantDark,
-                disabledContentColor = TextMuted
-            )
-        ) {
-            if (isRunning) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = BgDark, strokeWidth = 2.dp)
-                Spacer(modifier = Modifier.width(10.dp))
-                Text("Installing Mods...", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            } else {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Start Automated Setup", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
+                // Action / Running Progress Banner
+                if (isRunning) {
+                    val stepNum = currentStep?.stepNum ?: 1
+                    val progressFloat = (stepNum.toFloat() / 6f).coerceIn(0.05f, 1f)
 
-        // Setup Steps Progress Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Installation Steps",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = TextMuted
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-
-                SetupStep.values().forEach { step ->
-                    val isDone = currentStep != null && (step.stepNum < (currentStep?.stepNum ?: 0) || success)
-                    val isCurrent = currentStep == step && isRunning
-
-                    Row(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .border(1.dp, AccentMintSubtle, RoundedCornerShape(10.dp)),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    when {
-                                        isDone -> AccentMintSubtle
-                                        isCurrent -> AccentSkySubtle
-                                        else -> SurfaceVariantDark
-                                    }
-                                ),
-                            contentAlignment = Alignment.Center
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            when {
-                                isDone -> Icon(Icons.Default.Check, contentDescription = null, tint = AccentMint, modifier = Modifier.size(14.dp))
-                                isCurrent -> CircularProgressIndicator(modifier = Modifier.size(12.dp), color = AccentSky, strokeWidth = 2.dp)
-                                else -> Text(text = "${step.stepNum}", fontSize = 10.sp, color = TextMuted)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = AccentMint
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Step $stepNum/6: ${currentStep?.title ?: "Processing..."}",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = AccentMint
+                                    )
+                                }
+                                Text(
+                                    text = "${(progressFloat * 100).toInt()}%",
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = TextSecondary
+                                )
+                            }
+
+                            LinearProgressIndicator(
+                                progress = { progressFloat },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp)),
+                                color = AccentMint,
+                                trackColor = SurfaceVariantDark
+                            )
+                        }
+                    }
+                } else if (success) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, AccentMint, RoundedCornerShape(10.dp)),
+                        colors = CardDefaults.cardColors(containerColor = AccentMintSubtle),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentMint, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Setup Complete! Mods Installed.",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary
+                                )
+                            }
+
+                            Button(
+                                onClick = { showPreFlightDialog = true },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                modifier = Modifier.height(30.dp)
+                            ) {
+                                Text("Re-run", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = step.title,
-                            fontSize = 12.sp,
-                            fontWeight = if (isCurrent) FontWeight.Medium else FontWeight.Normal,
-                            color = when {
-                                isDone -> TextPrimary
-                                isCurrent -> AccentSky
-                                else -> TextMuted
-                            }
+                    }
+                } else {
+                    Button(
+                        onClick = { showPreFlightDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = AccentMint,
+                            contentColor = BgDark
                         )
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Start Automated Setup (Balls + Music)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
         }
 
-        // Live Log Terminal
+        // Hero Component: Live Diagnostics & Output Console
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -305,73 +351,129 @@ fun SetupScreen(manager: ScooterManager) {
             colors = CardDefaults.cardColors(containerColor = TerminalBg),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(10.dp)) {
+                // Console Header Bar
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Diagnostics & Output",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextMuted
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Terminal, contentDescription = null, tint = AccentMint, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Live Console Log",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "(${logs.size} lines)",
+                            fontSize = 10.sp,
+                            color = TextMuted,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Fullscreen / Minimize Toggle
+                        IconButton(
+                            onClick = { isFullscreenLog = !isFullscreenLog },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                if (isFullscreenLog) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                contentDescription = "Fullscreen",
+                                tint = AccentSky,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        // Copy Log Button
                         Button(
                             onClick = {
                                 val fullLog = logs.joinToString("\n")
                                 clipboard.setText(AnnotatedString(fullLog))
-                                Toast.makeText(context, "Full diagnostic log copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Log copied to clipboard!", Toast.LENGTH_SHORT).show()
                             },
                             shape = RoundedCornerShape(6.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = AccentMint),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                            modifier = Modifier.height(28.dp)
+                            modifier = Modifier.height(26.dp)
                         ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(13.dp))
+                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(11.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Copy Log", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text("Copy", fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
 
-                        IconButton(onClick = { manager.clearLogs() }, modifier = Modifier.size(28.dp)) {
-                            Icon(Icons.Default.DeleteOutline, contentDescription = "Clear", tint = TextMuted, modifier = Modifier.size(16.dp))
+                        // Clear Button
+                        IconButton(
+                            onClick = { manager.clearLogs() },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(Icons.Default.DeleteOutline, contentDescription = "Clear", tint = TextMuted, modifier = Modifier.size(15.dp))
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
+                HorizontalDivider(color = TerminalBorder, thickness = 1.dp)
+                Spacer(modifier = Modifier.height(6.dp))
 
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    items(logs) { logLine ->
-                        val color = when {
-                            logLine.contains("[+]") || logLine.contains("SUCCESS") -> AccentMint
-                            logLine.contains("[!]") || logLine.contains("failed") -> StatusDanger
-                            logLine.contains("[*]") -> AccentSky
-                            else -> TextSecondary
+                // Scrollable Terminal Logs
+                if (logs.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.Wifi, contentDescription = null, tint = TextMuted, modifier = Modifier.size(32.dp))
+                            Text(
+                                text = "Ready. Tap 'Scan' or 'Manual IP' to detect vehicle.",
+                                fontSize = 12.sp,
+                                color = TextMuted,
+                                fontFamily = FontFamily.Monospace
+                            )
                         }
-                        Text(
-                            text = logLine,
-                            fontSize = 13.sp, // Enlarged from 11.sp for high legibility
-                            fontFamily = FontFamily.Monospace,
-                            color = color,
-                            lineHeight = 18.sp // Clean line-height
-                        )
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        items(logs) { logLine ->
+                            val color = when {
+                                logLine.contains("[+]") || logLine.contains("SUCCESS") -> AccentMint
+                                logLine.contains("[!]") || logLine.contains("failed") -> StatusDanger
+                                logLine.contains("[*]") || logLine.contains("====") -> AccentSky
+                                logLine.contains("[-]") -> TextSecondary
+                                else -> TextSecondary
+                            }
+                            Text(
+                                text = logLine,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = color,
+                                lineHeight = 17.sp
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    // Manual IP / MAC / Scope Edit Dialog
+    // Manual IP / MAC Dialog with English Instructions
     if (showEditDialog) {
         var isConnectingManual by remember { mutableStateOf(false) }
 
@@ -390,30 +492,29 @@ fun SetupScreen(manager: ScooterManager) {
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // Step-by-Step Instruction Card in English
                     Card(
                         colors = CardDefaults.cardColors(containerColor = SurfaceVariantDark),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "How to find your IP on the scooter display:",
+                                text = "How to find IP on scooter display:",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = AccentSky
                             )
                             Text(
-                                text = "1. On the scooter screen, open Settings ➔ Wi-Fi.",
+                                text = "1. On scooter, open Settings ➔ Wi-Fi.",
                                 fontSize = 11.sp,
                                 color = TextPrimary
                             )
                             Text(
-                                text = "2. Tap on your connected Wi-Fi / Hotspot name.",
+                                text = "2. Tap your connected Wi-Fi / Hotspot name.",
                                 fontSize = 11.sp,
                                 color = TextPrimary
                             )
                             Text(
-                                text = "3. Note down the IP Address (e.g. 192.168.43.150) or MAC.",
+                                text = "3. Note the IP Address (e.g. 192.168.43.150) or MAC.",
                                 fontSize = 11.sp,
                                 color = TextPrimary
                             )
@@ -445,7 +546,7 @@ fun SetupScreen(manager: ScooterManager) {
                         )
                     } else if (tempInput.contains(".")) {
                         Text(
-                            text = "✓ IPv4 detected -> S1Mods will auto-derive IPv6 to bypass Customer mode firewall",
+                            text = "✓ IPv4 detected -> Auto-maps to IPv6 SLAAC for customer firewall bypass",
                             fontSize = 11.sp,
                             color = AccentSky
                         )
@@ -465,7 +566,7 @@ fun SetupScreen(manager: ScooterManager) {
                                 if (res.isPortOpen) {
                                     Toast.makeText(context, "Connected to scooter successfully!", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    Toast.makeText(context, "Address saved. Port 50005: check diagnostics log.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Address saved. Check diagnostics log.", Toast.LENGTH_LONG).show()
                                 }
                             }
                         }
@@ -487,6 +588,70 @@ fun SetupScreen(manager: ScooterManager) {
                     enabled = !isConnectingManual
                 ) {
                     Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = SurfaceDark,
+            shape = RoundedCornerShape(12.dp)
+        )
+    }
+
+    // View 6 Steps Overview Dialog
+    if (showStepsDialog) {
+        AlertDialog(
+            onDismissRequest = { showStepsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.FormatListNumbered, contentDescription = null, tint = AccentMint, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Automated Setup Pipeline", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SetupStep.values().forEach { step ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(SurfaceVariantDark)
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentMintSubtle),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "${step.stepNum}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentMint
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = step.title,
+                                fontSize = 12.sp,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showStepsDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Close", fontWeight = FontWeight.Medium)
                 }
             },
             containerColor = SurfaceDark,
@@ -520,17 +685,17 @@ fun SetupScreen(manager: ScooterManager) {
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = "• Side Stand UP: Sensor keeps vehicle systems active.",
+                            text = "• Side Stand UP: Keeps vehicle display and systems awake.",
                             fontSize = 11.sp,
                             color = TextPrimary
                         )
                         Text(
-                            text = "• Keep Screen Active: Tap screen during mods to prevent sleep.",
+                            text = "• Keep Screen Active: Tap display during setup to prevent sleep.",
                             fontSize = 11.sp,
                             color = TextPrimary
                         )
                         Text(
-                            text = "• Auto-Lock Safe: Auto-lock security is never disabled.",
+                            text = "• Zero Partition Writes: Bind-mount ADB unlock in RAM only.",
                             fontSize = 11.sp,
                             color = AccentSky
                         )
