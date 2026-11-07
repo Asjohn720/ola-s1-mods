@@ -39,7 +39,7 @@ import com.asjohn720.s1mods.ui.theme.*
 enum class AppTab(val title: String, val icon: ImageVector) {
     SETUP("Setup", Icons.Default.Bolt),
     TOOLBOX("Tools", Icons.Default.Dashboard),
-    CUSTOM_APK("App Manager", Icons.Default.Download),
+    CUSTOM_APK("Apps", Icons.Default.Download),
     TERMINAL("Shell", Icons.Default.Terminal)
 }
 
@@ -122,25 +122,17 @@ fun MainAppScaffold(manager: ScooterManager) {
                                 Icon(
                                     Icons.Default.ElectricScooter,
                                     contentDescription = null,
-                                    tint = AccentMint,
+                                    tint = TextPrimary,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
                             Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "S1Mods",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextPrimary
-                                )
-                                Text(
-                                    text = "by Anand (@asjohn720)",
-                                    fontSize = 11.sp,
-                                    color = TextSecondary,
-                                    fontWeight = FontWeight.Normal
-                                )
-                            }
+                            Text(
+                                text = "S1Mods",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
                         }
                     },
                     actions = {
@@ -149,7 +141,7 @@ fun MainAppScaffold(manager: ScooterManager) {
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(if (isConnected) AccentMintSubtle else SurfaceVariantDark)
+                                .background(SurfaceVariantDark)
                                 .clickable {
                                     manager.disconnect()
                                     bypassConnectionGate = false
@@ -160,21 +152,21 @@ fun MainAppScaffold(manager: ScooterManager) {
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(CircleShape)
-                                    .background(if (isConnected) AccentMint else StatusDanger)
+                                    .background(if (isConnected) StatusOk else StatusDanger)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = if (isConnected) "Connected" else "Offline",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (isConnected) AccentMint else TextMuted
+                                color = if (isConnected) TextPrimary else TextMuted
                             )
                         }
 
                         IconButton(onClick = { showOnboardingDialog = true }) {
                             Icon(
                                 Icons.AutoMirrored.Filled.HelpOutline,
-                                contentDescription = "How to Use",
+                                contentDescription = "Help",
                                 tint = TextSecondary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -183,7 +175,7 @@ fun MainAppScaffold(manager: ScooterManager) {
                         IconButton(onClick = { showAboutDialog = true }) {
                             Icon(
                                 Icons.Default.Info,
-                                contentDescription = "About & Author",
+                                contentDescription = "About",
                                 tint = TextSecondary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -197,7 +189,7 @@ fun MainAppScaffold(manager: ScooterManager) {
             },
             bottomBar = {
                 NavigationBar(
-                    containerColor = SurfaceDark,
+                    containerColor = BgDark,
                     tonalElevation = 0.dp,
                     modifier = Modifier.border(width = 1.dp, color = DividerColor, shape = RoundedCornerShape(0.dp))
                 ) {
@@ -220,8 +212,8 @@ fun MainAppScaffold(manager: ScooterManager) {
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = AccentMint,
-                                selectedTextColor = AccentMint,
+                                selectedIconColor = TextPrimary,
+                                selectedTextColor = TextPrimary,
                                 unselectedIconColor = TextMuted,
                                 unselectedTextColor = TextMuted,
                                 indicatorColor = AccentMintSubtle
@@ -251,75 +243,21 @@ fun MainAppScaffold(manager: ScooterManager) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(SurfaceVariantDark),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            tint = AccentMint,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text("S1Mods v1.0.0", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-                        Text("Author & Project Credits", fontSize = 11.sp, color = TextSecondary)
-                    }
-                }
+                Text("S1Mods ${BuildConfig.VERSION_NAME}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Author Card
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, CardBorder, RoundedCornerShape(10.dp)),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceVariantDark),
-                        shape = RoundedCornerShape(10.dp)
+                    Text("By Anand (@asjohn720)", fontSize = 13.sp, color = TextSecondary)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "Developer",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = TextMuted
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Anand (@Asjohn720)",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Automated discovery, in-memory ADB unlock workflow & Android app architecture.",
-                                fontSize = 11.sp,
-                                color = TextSecondary,
-                                lineHeight = 15.sp
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                SocialButton("GitHub", "https://github.com/Asjohn720", context, modifier = Modifier.weight(1f))
-                                SocialButton("X / Twitter", "https://x.com/asjohn720", context, modifier = Modifier.weight(1f))
-                                SocialButton("Instagram", "https://www.instagram.com/asjohn720", context, modifier = Modifier.weight(1f))
-                            }
-                        }
+                        SocialButton("GitHub", "https://github.com/Asjohn720", context, modifier = Modifier.weight(1f))
+                        SocialButton("X", "https://x.com/asjohn720", context, modifier = Modifier.weight(1f))
+                        SocialButton("Instagram", "https://www.instagram.com/asjohn720", context, modifier = Modifier.weight(1f))
                     }
-
                     Text(
-                        text = "Independent open-source utility under MIT License. Not affiliated with Ola Electric.",
+                        text = "MIT License. Not affiliated with Ola Electric.",
                         fontSize = 11.sp,
                         color = TextMuted,
                         lineHeight = 15.sp
@@ -327,12 +265,8 @@ fun MainAppScaffold(manager: ScooterManager) {
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = { showAboutDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Close", fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                TextButton(onClick = { showAboutDialog = false }) {
+                    Text("Close", color = TextPrimary)
                 }
             },
             containerColor = SurfaceDark,
@@ -347,59 +281,13 @@ fun MainAppScaffold(manager: ScooterManager) {
                 showOnboardingDialog = false
             },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(AccentMintSubtle),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.ElectricScooter,
-                            contentDescription = null,
-                            tint = AccentMint,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "How to Use S1Mods",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = "Quick 4-step connection guide",
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
-                    }
-                }
+                Text("How to connect", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OnboardingStepItem(
-                        step = "1",
-                        title = "Turn on Phone Hotspot",
-                        description = "Enable your mobile Wi-Fi Hotspot on this phone."
-                    )
-                    OnboardingStepItem(
-                        step = "2",
-                        title = "Connect Scooter",
-                        description = "On your Ola scooter: Settings → Wi-Fi, then connect to your phone's Hotspot."
-                    )
-                    OnboardingStepItem(
-                        step = "3",
-                        title = "Tap Auto Scan",
-                        description = "Tap 'Auto Scan' in the app to discover your scooter automatically."
-                    )
-                    OnboardingStepItem(
-                        step = "4",
-                        title = "Fallback: Use Manual Mode",
-                        description = "If scan doesn't detect it, use 'Manual Mode' and enter the Hotspot MAC ID or IP."
-                    )
+                    OnboardingStepItem("1", "Turn on your phone hotspot")
+                    OnboardingStepItem("2", "Join it from the scooter's Wi-Fi")
+                    OnboardingStepItem("3", "Tap Scan, or Manual if not found")
                 }
             },
             confirmButton = {
@@ -412,7 +300,7 @@ fun MainAppScaffold(manager: ScooterManager) {
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Got It, Let's Start!", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("Got it", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 }
             },
             containerColor = SurfaceDark,
@@ -422,30 +310,19 @@ fun MainAppScaffold(manager: ScooterManager) {
 }
 
 @Composable
-fun OnboardingStepItem(step: String, title: String, description: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(SurfaceVariantDark)
-            .border(1.dp, CardBorder, RoundedCornerShape(8.dp))
-            .padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+fun OnboardingStepItem(step: String, title: String) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
                 .size(24.dp)
                 .clip(CircleShape)
-                .background(AccentMintSubtle),
+                .border(1.dp, CardBorder, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = step, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AccentMint)
+            Text(text = step, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)
         }
-        Spacer(modifier = Modifier.width(10.dp))
-        Column {
-            Text(text = title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
-            Text(text = description, fontSize = 11.sp, color = TextSecondary, lineHeight = 14.sp)
-        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(text = title, fontSize = 14.sp, color = TextPrimary)
     }
 }
 
@@ -459,8 +336,8 @@ fun SocialButton(label: String, url: String, context: android.content.Context, m
         modifier = modifier,
         shape = RoundedCornerShape(6.dp),
         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = BgDark, contentColor = TextPrimary)
+        colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary)
     ) {
-        Text(label, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }

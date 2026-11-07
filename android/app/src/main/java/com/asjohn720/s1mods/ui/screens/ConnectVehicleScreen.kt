@@ -37,8 +37,6 @@ fun ConnectVehicleScreen(
     val isConnected by manager.isConnected.collectAsState()
     val scooterIp by manager.scooterIp.collectAsState()
 
-    var showHelpDialog by remember { mutableStateOf(false) }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -55,15 +53,15 @@ fun ConnectVehicleScreen(
             modifier = Modifier
                 .size(64.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(AccentMintSubtle)
-                .border(1.dp, AccentMint.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
+                .background(SurfaceVariantDark)
+                .border(1.dp, CardBorder, RoundedCornerShape(16.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 Icons.Default.ElectricScooter,
                 contentDescription = null,
-                tint = AccentMint,
-                modifier = Modifier.size(36.dp)
+                tint = TextPrimary,
+                modifier = Modifier.size(32.dp)
             )
         }
 
@@ -76,7 +74,7 @@ fun ConnectVehicleScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Connect your Ola S1 to access vehicle controls and mods",
+                text = "Connect your scooter to continue",
                 fontSize = 12.sp,
                 color = TextSecondary,
                 textAlign = TextAlign.Center
@@ -102,8 +100,8 @@ fun ConnectVehicleScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark)
             ) {
                 Text(
-                    text = "Proceed to Dashboard",
-                    fontWeight = FontWeight.Bold,
+                    text = "Continue",
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -115,77 +113,18 @@ fun ConnectVehicleScreen(
             }
         }
 
-        // Quick Connection Steps Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
-            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-            shape = RoundedCornerShape(12.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.HelpOutline,
-                        contentDescription = null,
-                        tint = AccentSky,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Quick Setup Guide",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AccentSky
-                    )
+            TextButton(onClick = onOpenHelp) {
+                Text("How to connect", color = TextSecondary, fontSize = 13.sp)
+            }
+            if (!isConnected) {
+                TextButton(onClick = onBypass) {
+                    Text("Skip", color = TextMuted, fontSize = 13.sp)
                 }
-
-                Text(
-                    text = "1. Turn ON Phone Hotspot.\n2. On Scooter Screen: Connect to your phone's Hotspot.\n3. Keep scooter screen awake.\n4. Tap 'Auto Scan'. If not found, tap 'Manual Mode' and enter Hotspot MAC or Scooter IP.",
-                    fontSize = 11.sp,
-                    color = TextSecondary,
-                    lineHeight = 17.sp
-                )
             }
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Bypass / Offline Mode
-        TextButton(
-            onClick = onBypass,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = if (isConnected) "Enter Dashboard" else "Continue in Offline Mode (Skip)",
-                color = if (isConnected) AccentMint else TextMuted,
-                fontSize = 12.sp
-            )
-        }
-    }
-
-    if (showHelpDialog) {
-        AlertDialog(
-            onDismissRequest = { showHelpDialog = false },
-            title = { Text("How to Connect", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "1. Enable Hotspot on your phone.\n" +
-                    "2. Connect your Ola Scooter to this Hotspot.\n" +
-                    "3. Make sure the scooter display stays ON.\n" +
-                    "4. Tap 'Auto Scan' or use 'Manual Mode'.",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { showHelpDialog = false }) {
-                    Text("Got it", color = AccentMint)
-                }
-            },
-            containerColor = SurfaceDark,
-            shape = RoundedCornerShape(12.dp)
-        )
     }
 }

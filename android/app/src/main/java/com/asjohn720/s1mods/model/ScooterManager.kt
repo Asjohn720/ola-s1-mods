@@ -35,7 +35,7 @@ enum class ModApp(
         assetFileName = "balls-1.1.0-lite-release.apk",
         packageName = "com.asjohn720.ball",
         isMandatory = true,
-        description = "Floating Back, Home & Settings touch buttons (Required)"
+        description = "Floating nav buttons"
     ),
     ANDROID_AUTO(
         id = "android_auto",
@@ -43,7 +43,7 @@ enum class ModApp(
         assetFileName = "com.asjohn720.androidauto.apk",
         packageName = "com.asjohn720.androidauto",
         isMandatory = false,
-        description = "Wireless Android Auto projection for MoveOS"
+        description = "Maps, music and calls"
     ),
     MUSIC(
         id = "music",
@@ -51,7 +51,7 @@ enum class ModApp(
         assetFileName = "musicmod-release.apk",
         packageName = "com.asjohn720.musicmod",
         isMandatory = false,
-        description = "Ad-free streaming and offline music playback"
+        description = "Ad-free music"
     )
 }
 

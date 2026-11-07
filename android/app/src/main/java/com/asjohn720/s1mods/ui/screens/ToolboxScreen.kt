@@ -55,7 +55,7 @@ fun ToolboxScreen(manager: ScooterManager) {
     ) {
         // Section Header
         Text(
-            text = "Vehicle Controls",
+            text = "Controls",
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             color = TextMuted
@@ -65,8 +65,8 @@ fun ToolboxScreen(manager: ScooterManager) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             val isHomeLoading = activeAction == "home"
             ToolboxActionCard(
-                title = "Dashboard Home",
-                subtitle = "Speedometer & Main UI",
+                title = "Home",
+                subtitle = "Dashboard",
                 icon = Icons.Default.Home,
                 isLoading = isHomeLoading,
                 modifier = Modifier.weight(1f)
@@ -77,9 +77,9 @@ fun ToolboxScreen(manager: ScooterManager) {
                         try {
                             val ok = manager.openDashboardHome()
                             if (ok) {
-                                Toast.makeText(context, "Dashboard Home confirmed opened", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Opened", Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, "Failed to confirm Dashboard Home", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Could not open", Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
@@ -92,8 +92,8 @@ fun ToolboxScreen(manager: ScooterManager) {
 
             val isSettingsLoading = activeAction == "settings"
             ToolboxActionCard(
-                title = "System Settings",
-                subtitle = "Native Settings Panel",
+                title = "Settings",
+                subtitle = "Android",
                 icon = Icons.Default.Settings,
                 isLoading = isSettingsLoading,
                 modifier = Modifier.weight(1f)
@@ -104,9 +104,9 @@ fun ToolboxScreen(manager: ScooterManager) {
                         try {
                             val ok = manager.openSettings("android.settings.SETTINGS")
                             if (ok) {
-                                Toast.makeText(context, "System Settings confirmed opened", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Opened", Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, "Failed to confirm Settings", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Could not open", Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
@@ -128,7 +128,7 @@ fun ToolboxScreen(manager: ScooterManager) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "System Settings Panels",
+                    text = "Shortcuts",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     color = TextMuted
@@ -170,7 +170,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Hardware & Software Info",
+                        text = "Device info",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = TextMuted
@@ -182,8 +182,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                                 isFetchingInfo = true
                                 try {
                                     scooterInfo = manager.fetchScooterInfo()
-                                    Toast.makeText(context, "Hardware info confirmed retrieved", Toast.LENGTH_SHORT).show()
-                                } catch (e: Exception) {
+                                                                    } catch (e: Exception) {
                                     Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                                 } finally {
                                     isFetchingInfo = false
@@ -198,7 +197,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                         if (isFetchingInfo) {
                             CircularProgressIndicator(modifier = Modifier.size(12.dp), color = TextPrimary, strokeWidth = 2.dp)
                         } else {
-                            Text("Inspect Specs", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Text("Load", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -212,11 +211,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                     InfoRow("Scooter Mode", scooterInfo?.scooterMode ?: "-")
                     InfoRow("Root UID", scooterInfo?.uid ?: "-")
                 } else {
-                    Text(
-                        text = "Query hardware identifiers, MoveOS release version, and UID directly over gRPC.",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
+                    Text(text = "Not loaded", fontSize = 12.sp, color = TextMuted)
                 }
             }
         }
@@ -236,7 +231,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Display Capture",
+                        text = "Screenshot",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = TextMuted
@@ -248,8 +243,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                                 isCapturing = true
                                 try {
                                     screenshotBitmap = manager.captureScreenshot()
-                                    Toast.makeText(context, "Screenshot confirmed captured", Toast.LENGTH_SHORT).show()
-                                } catch (e: Exception) {
+                                                                    } catch (e: Exception) {
                                     Toast.makeText(context, "Capture failed: ${e.message}", Toast.LENGTH_LONG).show()
                                 } finally {
                                     isCapturing = false
@@ -266,7 +260,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                         } else {
                             Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Capture Screen", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Text("Capture", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -308,7 +302,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                     ) {
                         Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Save to Storage", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("Save", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                 } else {
                     Box(
@@ -320,7 +314,7 @@ fun ToolboxScreen(manager: ScooterManager) {
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No screenshot captured yet.",
+                            text = "No screenshot",
                             fontSize = 12.sp,
                             color = TextMuted
                         )
@@ -356,7 +350,7 @@ fun ToolboxActionCard(
                 contentAlignment = Alignment.Center
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = AccentMint, strokeWidth = 2.dp)
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = TextPrimary, strokeWidth = 2.dp)
                 } else {
                     Icon(icon, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(18.dp))
                 }
@@ -364,7 +358,7 @@ fun ToolboxActionCard(
             Spacer(modifier = Modifier.height(10.dp))
             Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(text = if (isLoading) "Executing..." else subtitle, fontSize = 11.sp, color = if (isLoading) AccentMint else TextMuted)
+            Text(text = subtitle, fontSize = 12.sp, color = TextMuted)
         }
     }
 }
@@ -389,7 +383,7 @@ fun RowScope.SettingChip(
                     try {
                         val ok = manager.openSettings(action)
                         if (ok) {
-                            Toast.makeText(context, "$label confirmed opened", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Opened", Toast.LENGTH_SHORT).show()
                         } else {
                             Toast.makeText(context, "Could not open $label", Toast.LENGTH_SHORT).show()
                         }
@@ -408,7 +402,7 @@ fun RowScope.SettingChip(
         colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary)
     ) {
         if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.size(12.dp), color = AccentMint, strokeWidth = 2.dp)
+            CircularProgressIndicator(modifier = Modifier.size(12.dp), color = TextPrimary, strokeWidth = 2.dp)
         } else {
             Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium)
         }

@@ -123,12 +123,12 @@ fun SetupScreen(manager: ScooterManager) {
                     Icon(
                         Icons.Default.Bolt,
                         contentDescription = null,
-                        tint = if (activeSubTab == SetupSubTab.SETUP) AccentMint else TextMuted,
+                        tint = if (activeSubTab == SetupSubTab.SETUP) TextPrimary else TextMuted,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Setup & Vehicle",
+                        text = "Setup",
                         fontSize = 12.sp,
                         fontWeight = if (activeSubTab == SetupSubTab.SETUP) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (activeSubTab == SetupSubTab.SETUP) TextPrimary else TextMuted
@@ -150,12 +150,12 @@ fun SetupScreen(manager: ScooterManager) {
                     Icon(
                         Icons.Default.Terminal,
                         contentDescription = null,
-                        tint = if (activeSubTab == SetupSubTab.LOGS) AccentSky else TextMuted,
+                        tint = if (activeSubTab == SetupSubTab.LOGS) TextPrimary else TextMuted,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Live Console",
+                        text = "Console",
                         fontSize = 12.sp,
                         fontWeight = if (activeSubTab == SetupSubTab.LOGS) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (activeSubTab == SetupSubTab.LOGS) TextPrimary else TextMuted
@@ -202,7 +202,7 @@ fun SetupScreen(manager: ScooterManager) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, AccentMintSubtle, RoundedCornerShape(12.dp)),
+                            .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
                         colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -216,18 +216,17 @@ fun SetupScreen(manager: ScooterManager) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), color = AccentMint, strokeWidth = 2.dp)
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Text(
-                                        text = "Setup in Progress...",
+                                        text = "Installing",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = TextPrimary
                                     )
                                 }
                                 Text(
-                                    text = "Step ${currentStep?.stepNum ?: 1} of 5",
+                                    text = "${currentStep?.stepNum ?: 1}/5",
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
-                                    color = AccentMint,
-                                    fontWeight = FontWeight.Bold
+                                    color = TextSecondary
                                 )
                             }
 
@@ -249,16 +248,15 @@ fun SetupScreen(manager: ScooterManager) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = currentStep?.title ?: "Processing...",
-                                    fontSize = 11.sp,
-                                    color = AccentSky,
-                                    fontWeight = FontWeight.Medium
+                                    text = currentStep?.title ?: "Working",
+                                    fontSize = 12.sp,
+                                    color = TextSecondary
                                 )
                                 TextButton(
                                     onClick = { activeSubTab = SetupSubTab.LOGS },
                                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
                                 ) {
-                                    Text("View Terminal →", fontSize = 11.sp, color = AccentMint)
+                                    Text("Logs", fontSize = 12.sp, color = TextPrimary)
                                 }
                             }
                         }
@@ -268,27 +266,24 @@ fun SetupScreen(manager: ScooterManager) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, AccentMint, RoundedCornerShape(12.dp)),
+                            .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
                         colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentMint, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = StatusOk, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text("Setup Successfully Completed!", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AccentMint)
-                                    Text("All chosen mods are now active on your vehicle.", fontSize = 11.sp, color = TextSecondary)
-                                }
+                                Text("Setup complete", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                             }
                             Spacer(modifier = Modifier.height(10.dp))
                             Button(
                                 onClick = { showSetupPackageDialog = true },
                                 modifier = Modifier.fillMaxWidth().height(40.dp),
                                 shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark)
+                                colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary)
                             ) {
-                                Text("Re-Run Automated Setup", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Run again", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -297,7 +292,7 @@ fun SetupScreen(manager: ScooterManager) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, StatusDanger, RoundedCornerShape(12.dp)),
+                            .border(1.dp, StatusDanger.copy(alpha = 0.4f), RoundedCornerShape(12.dp)),
                         colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                         shape = RoundedCornerShape(12.dp)
                     ) {
@@ -306,8 +301,8 @@ fun SetupScreen(manager: ScooterManager) {
                                 Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = StatusDanger, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
-                                    Text("Setup Failed", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = StatusDanger)
-                                    Text(errorMessage ?: "Unknown error", fontSize = 11.sp, color = TextPrimary)
+                                    Text("Setup failed", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                    Text(errorMessage ?: "Unknown error", fontSize = 12.sp, color = TextSecondary)
                                 }
                             }
                             Spacer(modifier = Modifier.height(10.dp))
@@ -316,9 +311,9 @@ fun SetupScreen(manager: ScooterManager) {
                                     onClick = { showSetupPackageDialog = true },
                                     modifier = Modifier.weight(1f).height(38.dp),
                                     shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = StatusDanger, contentColor = TextPrimary)
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark)
                                 ) {
-                                    Text("Retry Setup", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("Retry", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                 }
                                 OutlinedButton(
                                     onClick = { activeSubTab = SetupSubTab.LOGS },
@@ -326,7 +321,7 @@ fun SetupScreen(manager: ScooterManager) {
                                     shape = RoundedCornerShape(8.dp),
                                     border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorder))
                                 ) {
-                                    Text("Inspect Error Log", fontSize = 12.sp, color = TextSecondary)
+                                    Text("View logs", fontSize = 12.sp, color = TextPrimary)
                                 }
                             }
                         }
@@ -349,7 +344,7 @@ fun SetupScreen(manager: ScooterManager) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Start Automated Setup",
+                            text = "Start setup",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -373,7 +368,7 @@ fun SetupScreen(manager: ScooterManager) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Installation Sequence (5 Steps)",
+                                text = "Steps",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = TextMuted
@@ -413,8 +408,8 @@ fun SetupScreen(manager: ScooterManager) {
                                         contentAlignment = Alignment.Center
                                     ) {
                                         when {
-                                            isDone -> Icon(Icons.Default.Check, contentDescription = null, tint = AccentMint, modifier = Modifier.size(13.dp))
-                                            isCurrent -> CircularProgressIndicator(modifier = Modifier.size(12.dp), color = AccentSky, strokeWidth = 2.dp)
+                                            isDone -> Icon(Icons.Default.Check, contentDescription = null, tint = StatusOk, modifier = Modifier.size(13.dp))
+                                            isCurrent -> CircularProgressIndicator(modifier = Modifier.size(12.dp), color = TextPrimary, strokeWidth = 2.dp)
                                             else -> Text(text = "${step.stepNum}", fontSize = 10.sp, color = TextMuted)
                                         }
                                     }
@@ -426,7 +421,7 @@ fun SetupScreen(manager: ScooterManager) {
                                         fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal,
                                         color = when {
                                             isDone -> TextPrimary
-                                            isCurrent -> AccentSky
+                                            isCurrent -> TextPrimary
                                             else -> TextMuted
                                         }
                                     )
@@ -454,13 +449,6 @@ fun SetupScreen(manager: ScooterManager) {
                 ) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Script Console",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
@@ -468,15 +456,15 @@ fun SetupScreen(manager: ScooterManager) {
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = if (isRunning) "ACTIVE" else "IDLE",
+                                    text = if (isRunning) "Running" else "Idle",
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isRunning) AccentSky else TextMuted
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (isRunning) TextPrimary else TextMuted
                                 )
                             }
                         }
                         Text(
-                            text = if (scooterIp.isNotBlank()) "Target: $scooterIp" else "Target: Disconnected",
+                            text = scooterIp.ifBlank { "No target" },
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             color = TextMuted
@@ -490,7 +478,7 @@ fun SetupScreen(manager: ScooterManager) {
                                 if (logs.isNotEmpty()) {
                                     val full = logs.joinToString("\n")
                                     clipboard.setText(AnnotatedString(full))
-                                    Toast.makeText(context, "All logs copied to clipboard", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier
@@ -534,7 +522,7 @@ fun SetupScreen(manager: ScooterManager) {
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(if (isSelected) AccentSkySubtle else SurfaceDark)
-                                .border(1.dp, if (isSelected) AccentSky else CardBorder, RoundedCornerShape(6.dp))
+                                .border(1.dp, if (isSelected) TextMuted else CardBorder, RoundedCornerShape(6.dp))
                                 .clickable { logFilter = key }
                                 .padding(horizontal = 10.dp, vertical = 5.dp)
                         ) {
@@ -542,7 +530,7 @@ fun SetupScreen(manager: ScooterManager) {
                                 text = label,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (isSelected) AccentSky else TextSecondary
+                                color = if (isSelected) TextPrimary else TextSecondary
                             )
                         }
                     }
@@ -566,15 +554,9 @@ fun SetupScreen(manager: ScooterManager) {
                                 Icon(Icons.Default.Terminal, contentDescription = null, tint = TextMuted, modifier = Modifier.size(36.dp))
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Text(
-                                    text = if (logs.isEmpty()) "No logs generated yet." else "No logs match current filter.",
+                                    text = if (logs.isEmpty()) "No logs yet" else "Nothing matches",
                                     fontSize = 12.sp,
                                     color = TextMuted
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Start Automated Setup to see live step output.",
-                                    fontSize = 11.sp,
-                                    color = TextSecondary
                                 )
                             }
                         }
@@ -589,9 +571,9 @@ fun SetupScreen(manager: ScooterManager) {
                             ) {
                                 items(filteredLogs) { logLine ->
                                     val color = when {
-                                        logLine.contains("[+]") || logLine.contains("SUCCESS") || logLine.contains("CONGRATULATIONS") -> AccentMint
+                                        logLine.contains("[+]") || logLine.contains("SUCCESS") || logLine.contains("CONGRATULATIONS") -> StatusOk
                                         logLine.contains("[!]") || logLine.contains("failed") || logLine.contains("ERROR") -> StatusDanger
-                                        logLine.contains("[*]") -> AccentSky
+                                        logLine.contains("[*]") -> TextPrimary
                                         logLine.startsWith("=") -> TextMuted
                                         else -> TextSecondary
                                     }
@@ -626,22 +608,7 @@ fun SetupScreen(manager: ScooterManager) {
         AlertDialog(
             onDismissRequest = { showSetupPackageDialog = false },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(AccentMintSubtle),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Bolt, contentDescription = null, tint = AccentMint, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text("Automated Setup Configuration", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Choose mods to install on vehicle", color = TextSecondary, fontSize = 11.sp)
-                    }
-                }
+                Text("Choose mods", color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             },
             text = {
                 Column(
@@ -650,13 +617,6 @@ fun SetupScreen(manager: ScooterManager) {
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = "Packages to Install:",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
-                    )
-
                     // ModApp Checkboxes
                     ModApp.values().forEach { app ->
                         val isChecked = selectedApps.contains(app)
@@ -684,16 +644,16 @@ fun SetupScreen(manager: ScooterManager) {
                                     checkedColor = AccentMint,
                                     uncheckedColor = CardBorder,
                                     checkmarkColor = BgDark,
-                                    disabledCheckedColor = AccentMint.copy(alpha = 0.6f)
+                                    disabledCheckedColor = TextMuted
                                 )
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Column {
                                 Text(
-                                    text = app.displayName + if (app.isMandatory) " (Required)" else "",
+                                    text = app.displayName + if (app.isMandatory) " · required" else "",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = if (app.isMandatory) AccentMint else TextPrimary
+                                    color = TextPrimary
                                 )
                                 Text(
                                     text = app.description,
@@ -707,38 +667,11 @@ fun SetupScreen(manager: ScooterManager) {
                     Spacer(modifier = Modifier.height(4.dp))
 
                     // Pre-flight Reminders Card
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(SurfaceVariantDark)
-                            .padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "Pre-Check Guidelines:",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AccentSky
-                        )
-                        Text(
-                            text = "• Keep scooter side stand UP during installation.",
-                            fontSize = 11.sp,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = "• Keep scooter screen awake (tap screen if needed).",
-                            fontSize = 11.sp,
-                            color = TextPrimary
-                        )
-                    }
-
-                    // Subtle, small disclaimer note as requested
                     Text(
-                        text = "Notice: Use this app at your own risk.",
-                        fontSize = 10.sp,
+                        text = "Keep the side stand up and screen on. Use at your own risk.",
+                        fontSize = 12.sp,
                         color = TextMuted,
-                        modifier = Modifier.padding(top = 2.dp)
+                        lineHeight = 16.sp
                     )
                 }
             },
@@ -753,7 +686,7 @@ fun SetupScreen(manager: ScooterManager) {
                     colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Confirm & Start Setup (${selectedApps.size} Mods)", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    Text("Install (${selectedApps.size})", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 }
             },
             dismissButton = {
