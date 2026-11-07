@@ -176,11 +176,14 @@ class S1GrpcClient(
         var connected = false
         var lastError: Exception? = null
 
-        // 1. Fast try top execution method candidates directly
-        val quickCandidates = listOf("ExecuteADBCommand", "ExecuteAdbCommand", "ExecuteAdbCmd", "ExecuteCommand", "RunCmd", "RunSystemTestCmd")
+        // 1. Fast try candidate execution methods directly
+        val quickCandidates = listOf(
+            "ExecuteADBCommand", "ExecuteAdbCommand", "ExecuteAdbCmd",
+            "ExecuteCommand", "RunCmd", "RunSystemTestCmd", "RemoteRunTestCmd"
+        )
         for (method in quickCandidates) {
             try {
-                val (status, out) = executeViaMethod(method, "id -u", 2L)
+                val (status, out) = executeViaMethod(method, "id -u", 1L)
                 val trimmed = out.trim()
                 if (status in 0..1 || trimmed == "0" || trimmed.contains("uid=0")) {
                     activeMethodName = method
@@ -218,18 +221,17 @@ class S1GrpcClient(
 
     /**
      * Audits gRPC services and methods on the scooter without modifying vehicle state.
-     * Discovers which service names are registered, queries vehicle info, and tests execution candidates.
+     * Discovers all registered method names on the daemon and tests command execution candidates.
      */
     suspend fun auditMethodsAndServices(onLog: (String) -> Unit): String? = withContext(Dispatchers.IO) {
         installResolver()
-        if (channel == null) {
-            val target = targetUri()
-            channel = OkHttpChannelBuilder.forTarget(target)
-                .usePlaintext()
-                .maxInboundMessageSize(64 * 1024 * 1024)
-                .build()
-        }
-        val ch = channel ?: return@withContext null
+        val target = targetUri()
+        channel?.shutdownNow()
+        val ch = OkHttpChannelBuilder.forTarget(target)
+            .usePlaintext()
+            .maxInboundMessageSize(64 * 1024 * 1024)
+            .build()
+        channel = ch
 
         onLog("--------------------------------------------------")
         onLog("[*] AUDITING GRPC DAEMON ON $host:$port")
@@ -257,7 +259,7 @@ class S1GrpcClient(
                     .setRequestMarshaller(ByteArrayMarshaller)
                     .setResponseMarshaller(ByteArrayMarshaller)
                     .build()
-                val call = ch.newCall(desc, CallOptions.DEFAULT.withDeadlineAfter(800, TimeUnit.MILLISECONDS))
+                val call = ch.newCall(desc, CallOptions.DEFAULT.withDeadlineAfter(600, TimeUnit.MILLISECONDS))
                 val resultHolder = CompletableResult<ByteArray>()
                 call.start(object : ClientCall.Listener<ByteArray>() {
                     override fun onMessage(message: ByteArray) { resultHolder.complete(message) }
@@ -306,7 +308,7 @@ class S1GrpcClient(
         for (method in queryMethods) {
             try {
                 val desc = buildMethodDescriptor(method, "wifican.WifiCanRpc")
-                val call = ch.newCall(desc, CallOptions.DEFAULT.withDeadlineAfter(1200, TimeUnit.MILLISECONDS))
+                val call = ch.newCall(desc, CallOptions.DEFAULT.withDeadlineAfter(1000, TimeUnit.MILLISECONDS))
                 val resultHolder = CompletableResult<ByteArray>()
                 call.start(object : ClientCall.Listener<ByteArray>() {
                     override fun onMessage(message: ByteArray) { resultHolder.complete(message) }
@@ -343,51 +345,140 @@ class S1GrpcClient(
             }
         }
 
-        // Step C: Test execution candidates across all active services
-        onLog("\n[*] Scanning candidate execution RPC methods:")
-        for (srv in activeServices) {
-            for (method in candidateExecutionMethods) {
-                try {
-                    val (status, out) = executeViaMethod(method, "id -u", 1200L, srv)
-                    val trimmed = out.trim()
-                    if (status in 0..1 || trimmed == "0" || trimmed.contains("uid=0")) {
-                        onLog("  [★] FOUND WORKING METHOD: $srv/$method (output: '$trimmed')")
-                        activeServiceName = srv
-                        activeMethodName = method
-                        return@withContext method
-                    } else if (out.isNotBlank()) {
-                        onLog("  • $srv/$method: responded (status=$status, out='$trimmed')")
+        // Step C: Test exhaustive methods to discover the full RPC surface
+        onLog("\n[*] Scanning complete method registry on wifican.WifiCanRpc:")
+        val allKnownMethods = listOf(
+            "Init", "Deinit", "ReadCanFrame", "WriteCanFrame", "ReadCanStream", "WriteCanStream",
+            "CanDumpStream", "SetVehicleOperationMode", "SwUpdateCheckStatus", "RegisterNavigation",
+            "ConfigUpdate", "ScooterModeChange", "RemoteRunTestCmd", "LocalGetConnection",
+            "LocalGetTestCmd", "LocalSendTestResp", "LocalRunTestStream", "SetEcosFlag", "SetDynoFlag",
+            "TechPackUpdate", "RunSystemTestCmd", "ExecuteADBCommand", "ExecuteAdbCommand",
+            "executeADBCommand", "executeAdbCommand", "ExecuteAdbCmd", "executeAdbCmd",
+            "ExecuteAdb", "executeAdb", "ExecuteCommand", "executeCommand", "ExecCommand", "execCommand",
+            "RunCmd", "runCmd", "RunCommand", "runCommand", "RunShellCommand", "runShellCommand",
+            "ShellCommand", "shellCommand", "RunAdbCommand", "runAdbCommand", "AdbCommand", "adbCommand",
+            "AdbCmd", "adbCmd", "AdbExec", "adbExec", "Execute", "execute", "Exec", "exec",
+            "Run", "run", "Shell", "shell", "Cmd", "cmd", "Command", "command", "SystemCmd", "SysCmd",
+            "RunDiagCmd", "DiagnosticCmd"
+        )
+
+        val registeredMethods = mutableListOf<String>()
+
+        for (method in allKnownMethods) {
+            try {
+                val desc = buildMethodDescriptor(method, "wifican.WifiCanRpc")
+                val call = ch.newCall(desc, CallOptions.DEFAULT.withDeadlineAfter(800, TimeUnit.MILLISECONDS))
+                val resultHolder = CompletableResult<ByteArray>()
+                call.start(object : ClientCall.Listener<ByteArray>() {
+                    override fun onMessage(message: ByteArray) { resultHolder.complete(message) }
+                    override fun onClose(status: io.grpc.Status, trailers: io.grpc.Metadata) {
+                        if (!status.isOk && !resultHolder.isDone()) {
+                            resultHolder.completeExceptionally(status.asRuntimeException())
+                        }
                     }
-                } catch (e: StatusRuntimeException) {
-                    if (e.status.code != io.grpc.Status.Code.UNIMPLEMENTED) {
-                        onLog("  • $srv/$method: present (error: ${e.status.code})")
+                }, io.grpc.Metadata())
+                call.request(1)
+                call.sendMessage(ProtoUtils.buildCommandPayload("id -u"))
+                call.halfClose()
+
+                val resp = resultHolder.await()
+                registeredMethods.add(method)
+                val (status, msg) = ProtoUtils.decodeResponse(resp)
+                val trimmed = msg.trim()
+                if (trimmed == "0" || trimmed.contains("uid=0") || (status in 0..1 && trimmed.isNotEmpty())) {
+                    onLog("  [★] ROOT EXECUTION METHOD CONFIRMED: $method -> Output: '$trimmed'")
+                    activeMethodName = method
+                    return@withContext method
+                } else {
+                    onLog("  [+] Registered: $method (status=$status, msg='$trimmed')")
+                }
+            } catch (e: StatusRuntimeException) {
+                if (e.status.code != io.grpc.Status.Code.UNIMPLEMENTED) {
+                    // Method exists on server!
+                    registeredMethods.add(method)
+                    onLog("  [+] Registered: $method (${e.status.code}: ${e.status.description ?: ""})")
+                }
+            } catch (_: Exception) {}
+        }
+
+        // Step D: Special payload probes for RunSystemTestCmd and RemoteRunTestCmd if registered
+        if (registeredMethods.contains("RunSystemTestCmd")) {
+            onLog("\n[*] Probing RunSystemTestCmd with typed SystemTestCmd payload...")
+            try {
+                val cmdBytes = "id -u".toByteArray(StandardCharsets.UTF_8)
+                val tag1 = ProtoUtils.encodeVarint(1L shl 3) + ProtoUtils.encodeVarint(1L) // SYS_CMD_SOM = 1
+                val tag2 = ProtoUtils.encodeVarint((2L shl 3) or 2L) + ProtoUtils.encodeVarint(cmdBytes.size.toLong()) + cmdBytes
+                val tag3 = ProtoUtils.encodeVarint((3L shl 3) or 2L) + ProtoUtils.encodeVarint(cmdBytes.size.toLong()) + cmdBytes
+                val payload = tag1 + tag2 + tag3
+
+                val desc = buildMethodDescriptor("RunSystemTestCmd", "wifican.WifiCanRpc")
+                val call = ch.newCall(desc, CallOptions.DEFAULT.withDeadlineAfter(1500, TimeUnit.MILLISECONDS))
+                val resultHolder = CompletableResult<ByteArray>()
+                call.start(object : ClientCall.Listener<ByteArray>() {
+                    override fun onMessage(message: ByteArray) { resultHolder.complete(message) }
+                    override fun onClose(status: io.grpc.Status, trailers: io.grpc.Metadata) {
+                        if (!status.isOk && !resultHolder.isDone()) {
+                            resultHolder.completeExceptionally(status.asRuntimeException())
+                        }
                     }
-                } catch (_: Exception) {}
+                }, io.grpc.Metadata())
+                call.request(1)
+                call.sendMessage(payload)
+                call.halfClose()
+                val resp = resultHolder.await()
+                val (status, msg) = ProtoUtils.decodeResponse(resp)
+                onLog("  [★] RunSystemTestCmd response: status=$status, msg='$msg'")
+                if (msg.contains("0") || msg.contains("uid=0")) {
+                    activeMethodName = "RunSystemTestCmd"
+                    return@withContext "RunSystemTestCmd"
+                }
+            } catch (e: Exception) {
+                onLog("  • RunSystemTestCmd probe: ${e.message}")
             }
         }
 
-        // Step D: Try handshake with InitConnection then re-check top candidates
-        onLog("\n[*] Testing session handshake (InitConnection)...")
-        val handshakeOk = initConnection("s1mods", 2L)
-        if (handshakeOk) {
-            onLog("  [+] InitConnection handshake accepted! Re-testing execution candidates...")
-            for (method in candidateExecutionMethods) {
-                try {
-                    val (status, out) = executeViaMethod(method, "id -u", 1200L)
-                    val trimmed = out.trim()
-                    if (status in 0..1 || trimmed == "0" || trimmed.contains("uid=0")) {
-                        onLog("  [★] FOUND WORKING METHOD after handshake: $method (output: '$trimmed')")
-                        activeMethodName = method
-                        return@withContext method
+        if (registeredMethods.contains("RemoteRunTestCmd")) {
+            onLog("\n[*] Probing RemoteRunTestCmd with typed RmtCmdReq payload...")
+            try {
+                val cmdBytes = "id -u".toByteArray(StandardCharsets.UTF_8)
+                val tag13 = ProtoUtils.encodeVarint((13L shl 3) or 2L) + ProtoUtils.encodeVarint(cmdBytes.size.toLong()) + cmdBytes
+                val desc = buildMethodDescriptor("RemoteRunTestCmd", "wifican.WifiCanRpc")
+                val call = ch.newCall(desc, CallOptions.DEFAULT.withDeadlineAfter(1500, TimeUnit.MILLISECONDS))
+                val resultHolder = CompletableResult<ByteArray>()
+                call.start(object : ClientCall.Listener<ByteArray>() {
+                    override fun onMessage(message: ByteArray) { resultHolder.complete(message) }
+                    override fun onClose(status: io.grpc.Status, trailers: io.grpc.Metadata) {
+                        if (!status.isOk && !resultHolder.isDone()) {
+                            resultHolder.completeExceptionally(status.asRuntimeException())
+                        }
                     }
-                } catch (_: Exception) {}
+                }, io.grpc.Metadata())
+                call.request(1)
+                call.sendMessage(tag13)
+                call.halfClose()
+                val resp = resultHolder.await()
+                val (status, msg) = ProtoUtils.decodeResponse(resp)
+                onLog("  [★] RemoteRunTestCmd response: status=$status, msg='$msg'")
+                if (msg.contains("0") || msg.contains("uid=0")) {
+                    activeMethodName = "RemoteRunTestCmd"
+                    return@withContext "RemoteRunTestCmd"
+                }
+            } catch (e: Exception) {
+                onLog("  • RemoteRunTestCmd probe: ${e.message}")
             }
+        }
+
+        onLog("\n==================================================")
+        onLog("DISCOVERED METHODS ON MOVEOS ${detectedSoftwareVersion ?: "3.1.0"}:")
+        val allDiscovered = (queryMethods.filter { !it.contains("Not") } + registeredMethods).distinct()
+        if (allDiscovered.isEmpty()) {
+            onLog("  (Only default queries answered)")
         } else {
-            onLog("  • InitConnection not required or not present.")
+            allDiscovered.forEach { onLog("  • $it") }
         }
-
-        onLog("\n[!] Audit complete. No execution method produced uid=0.")
-        onLog("Tip: Tap 'Copy Log' and share this audit to reveal available methods.")
+        onLog("==================================================")
+        onLog("Tip: Tap 'Copy Log' and share this table.")
+        null
         null
     }
 

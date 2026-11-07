@@ -137,11 +137,15 @@ class ScooterManager(private val context: Context) {
         val target = scooterIp.value.trim()
         if (target.isNotBlank()) {
             log("\n[*] Probing current target: $target (Scope: ${scooterScope.value ?: "auto"})")
+            
+            // 1. Probe Port 50005 (gRPC Daemon)
             val res = NetworkScanner.testPortDetailed(target, 50005, scooterScope.value, 1500)
             if (res.isOpen) {
-                log("    [+] Port 50005 is OPEN (${res.timeTakenMs}ms)!")
+                log("    [+] Port 50005 (gRPC) is OPEN (${res.timeTakenMs}ms)!")
                 isConnected.value = true
-                val client = grpcClient ?: S1GrpcClient(target, 50005, scooterScope.value).also { grpcClient = it }
+                grpcClient?.close()
+                val client = S1GrpcClient(target, 50005, scooterScope.value)
+                grpcClient = client
                 try {
                     client.auditMethodsAndServices { logLine ->
                         log(logLine)
@@ -150,7 +154,7 @@ class ScooterManager(private val context: Context) {
                     log("    [!] Audit error: ${e.message}")
                 }
             } else {
-                log("    [!] Port 50005 unreachable: ${res.errorDetails}")
+                log("    [!] Port 50005 (gRPC) unreachable: ${res.errorDetails}")
                 if (res.errorDetails?.contains("Connection refused") == true) {
                     log("        Diagnose: Host reached, but port 50005 is closed.")
                     log("        Fix: Ensure Side Stand is UP and display screen is awake.")
@@ -159,6 +163,23 @@ class ScooterManager(private val context: Context) {
                     log("        Fix: Enter scooter MAC address in Edit (✏️) to use IPv6 link-local bypass.")
                 }
                 isConnected.value = false
+            }
+
+            // 2. Probe Port 5555 (ADB Daemon)
+            log("\n[*] Probing Port 5555 (ADB Daemon):")
+            val resAdb = NetworkScanner.testPortDetailed(target, 5555, scooterScope.value, 1500)
+            if (resAdb.isOpen) {
+                log("    [+] Port 5555 (ADB) is OPEN (${resAdb.timeTakenMs}ms)!")
+                try {
+                    log("    [*] Testing direct ADB authorization handshake...")
+                    val dadb = adbManager.connect(target, 5555)
+                    val uidOut = dadb.shell("id -u").allOutput.trim()
+                    log("    [★] DIRECT ADB ACCESS CONFIRMED! (uid: $uidOut)")
+                } catch (e: Exception) {
+                    log("    • Direct ADB status: ${e.message}")
+                }
+            } else {
+                log("    • Port 5555 (ADB) is currently closed/firewalled (${resAdb.errorDetails ?: "Closed"}).")
             }
         } else {
             log("\n[*] No scooter address selected yet.")
@@ -261,27 +282,64 @@ class ScooterManager(private val context: Context) {
                     throw IllegalStateException("No vehicle detected. Please tap 'Scan' or paste MAC address.")
                 }
             }
-            if (grpcClient == null || !isConnected.value) {
-                connect()
+            val activeTarget = scooterIp.value.trim()
+            var directAdbReady = false
+
+            // Check if ADB on Port 5555 is already open and ready (Service mode on MoveOS 3)
+            val adbPortCheck = NetworkScanner.testPortDetailed(activeTarget, 5555, scooterScope.value, 1000)
+            if (adbPortCheck.isOpen) {
+                log("[*] Port 5555 (ADB) is OPEN. Testing direct ADB authorization...")
+                try {
+                    val dadb = adbManager.connect(activeTarget, 5555)
+                    val uidOut = dadb.shell("id -u").allOutput.trim()
+                    if (uidOut.isNotBlank()) {
+                        log("[+] Direct ADB authorized and ready (uid: $uidOut)!")
+                        directAdbReady = true
+                    }
+                } catch (e: Exception) {
+                    log("    • Direct ADB needs authorization: ${e.message}")
+                }
             }
-            log("[+] gRPC link confirmed alive.")
+
+            if (!directAdbReady) {
+                if (grpcClient == null || !isConnected.value) {
+                    connect(activeTarget, scooterScope.value)
+                }
+                log("[+] gRPC link confirmed alive.")
+            }
 
             // Step 2: Wake & Pre-Check
             currentStep.value = SetupStep.PRE_CHECK_AND_WAKE
             log("\n[2/6] Waking display...")
-            grpcClient?.wakeScreen()
-            log("[+] Screen awake. Ensure side stand is UP and screen stays active.")
+            try {
+                if (directAdbReady) {
+                    adbManager.shell("input keyevent 224")
+                    log("[+] Display woke via ADB.")
+                } else {
+                    grpcClient?.wakeScreen()
+                    log("[+] Display woke via gRPC.")
+                }
+            } catch (e: Exception) {
+                log("[*] Auto-wake note: ${e.message}. Please tap the scooter screen to keep awake.")
+            }
+            log("[+] Screen active. Ensure side stand is UP and screen stays on.")
 
             // Step 3: Unlock ADB (In-Memory RAM Bind Mount)
             currentStep.value = SetupStep.UNLOCK_ADB
             log("\n[3/6] Authorizing ADB key via in-memory RAM mount...")
-            val (_, pubKey) = adbManager.getOrCreateAdbKeyPair()
-            val unlocked = grpcClient?.unlockAdb(pubKey) ?: false
-            if (!unlocked) {
-                log("[*] Warning: bind mount script returned non-zero, trying ADB connect...")
+            if (!directAdbReady) {
+                val (_, pubKey) = adbManager.getOrCreateAdbKeyPair()
+                try {
+                    val unlocked = grpcClient?.unlockAdb(pubKey) ?: false
+                    if (!unlocked) {
+                        log("[*] Warning: bind mount script returned non-zero, trying direct ADB connect...")
+                    }
+                } catch (e: Exception) {
+                    log("[*] Note: gRPC bind mount skipped (${e.message}), trying direct ADB connect...")
+                }
+                log("[*] Connecting Kotlin ADB client over TCP Port 5555...")
+                adbManager.connect(activeTarget, 5555)
             }
-            log("[*] Connecting Kotlin ADB client over TCP Port 5555...")
-            adbManager.connect(scooterIp.value, 5555)
             log("[+] ADB connected successfully as 'device'!")
 
             // Step 4: Extract and Install Chosen APKs
@@ -377,10 +435,20 @@ class ScooterManager(private val context: Context) {
      */
     suspend fun openDashboardHome(): Boolean = withContext(Dispatchers.IO) {
         log("[*] Bringing Dashboard Home to front...")
-        val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
-        val (exitCode, _) = client.shell("am start -n com.olaelectric.hmiclient/.MainActivity", 15L)
-        client.shell("input keyevent 3", 10L)
-        exitCode in 0..1
+        try {
+            adbManager.shell("am start -n com.olaelectric.hmiclient/.MainActivity")
+            adbManager.shell("input keyevent 3")
+            return@withContext true
+        } catch (_: Exception) {}
+        val client = grpcClient
+        if (client != null) {
+            try {
+                val (exitCode, _) = client.shell("am start -n com.olaelectric.hmiclient/.MainActivity", 15L)
+                client.shell("input keyevent 3", 10L)
+                return@withContext exitCode in 0..1
+            } catch (_: Exception) {}
+        }
+        false
     }
 
     suspend fun openOlaHome() = openDashboardHome()
