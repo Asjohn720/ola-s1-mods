@@ -3,29 +3,73 @@ package com.asjohn720.s1mods.grpc
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
+import io.grpc.Attributes
 import io.grpc.CallOptions
 import io.grpc.ClientCall
+import io.grpc.EquivalentAddressGroup
 import io.grpc.ManagedChannel
 import io.grpc.MethodDescriptor
+import io.grpc.NameResolver
+import io.grpc.NameResolverProvider
+import io.grpc.NameResolverRegistry
 import io.grpc.StatusRuntimeException
 import io.grpc.okhttp.OkHttpChannelBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.io.InputStream
+import java.net.Inet6Address
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.URI
 import java.nio.charset.StandardCharsets
+import java.util.Collections
 import java.util.concurrent.TimeUnit
 
 /**
  * Direct gRPC client for MoveOS Root Diagnostics Service (TCP Port 50005).
  * Weakly-typed root execution without authentication or pairing.
- * Supports multi-method fallback for MoveOS 3 (S1 Air), MoveOS 4, and MoveOS 5.
+ * Supports multi-method fallback and link-local scoped IPv6 address resolution.
  */
 class S1GrpcClient(
     val host: String,
     val port: Int = 50005,
     val scope: Int? = null
 ) {
+    companion object {
+        private const val SCHEME = "s1mods"
+        private var resolverInstalled = false
+
+        fun installResolver() {
+            if (resolverInstalled) return
+            synchronized(this) {
+                if (resolverInstalled) return
+                NameResolverRegistry.getDefaultRegistry().register(ScopedResolverProvider())
+                resolverInstalled = true
+            }
+        }
+
+        private fun hexEncode(text: String): String {
+            val bytes = text.toByteArray(StandardCharsets.UTF_8)
+            val hexChars = "0123456789abcdef"
+            val sb = StringBuilder(bytes.size * 2)
+            for (b in bytes) {
+                val i = b.toInt() and 0xFF
+                sb.append(hexChars[i ushr 4])
+                sb.append(hexChars[i and 0x0F])
+            }
+            return sb.toString()
+        }
+
+        private fun hexDecode(hex: String): String {
+            val bytes = ByteArray(hex.length / 2)
+            for (i in 0 until hex.length step 2) {
+                bytes[i / 2] = hex.substring(i, i + 2).toInt(16).toByte()
+            }
+            return String(bytes, StandardCharsets.UTF_8)
+        }
+    }
+
     private var channel: ManagedChannel? = null
 
     var activeMethodName: String = "ExecuteADBCommand"
@@ -54,9 +98,10 @@ class S1GrpcClient(
     }
 
     /**
-     * Formats target host for OkHttpChannelBuilder.
+     * Formats target host as an RFC-3986 compliant URI parsed safely by ScopedResolver.
+     * Prevents java.net.URI crashes on scoped link-local IPv6 addresses (e.g. fe80::...%109).
      */
-    fun formattedTarget(): String {
+    fun targetUri(): String {
         var h = host.trim()
         if (h.lowercase().startsWith("ipv6:")) {
             h = h.substring(5).trim()
@@ -73,19 +118,16 @@ class S1GrpcClient(
                     h = "$h%$scope"
                 }
             }
-            if (h.contains("%") && !h.contains("%25")) {
-                h = h.replace("%", "%25")
-            }
-            return "ipv6:[$h]:$port"
         }
-        return "$h:$port"
+        return "$SCHEME:///${hexEncode(h)}/$port"
     }
 
     /**
      * Connects and verifies channel responsiveness with multi-method auto-discovery.
      */
     suspend fun connect(timeoutSeconds: Long = 6L) = withContext(Dispatchers.IO) {
-        val target = formattedTarget()
+        installResolver()
+        val target = targetUri()
         channel?.shutdownNow()
         val ch = OkHttpChannelBuilder.forTarget(target)
             .usePlaintext()
@@ -136,7 +178,7 @@ class S1GrpcClient(
         }
 
         if (!connected) {
-            throw IllegalStateException("No compatible execution RPC method found on $target: ${lastError?.message ?: "Unreachable"}")
+            throw IllegalStateException("No compatible execution RPC method found on $host: ${lastError?.message ?: "Unreachable"}")
         }
     }
 
@@ -167,36 +209,6 @@ class S1GrpcClient(
             status in 0..1
         } catch (_: Exception) {
             false
-        }
-    }
-
-    /**
-     * Probes GetSwVersion from diagnostics daemon.
-     */
-    suspend fun probeSoftwareVersion(timeoutSeconds: Long = 4L): String? = withContext(Dispatchers.IO) {
-        val ch = channel ?: return@withContext null
-        try {
-            val desc = buildMethodDescriptor("GetSwVersion")
-            val call = ch.newCall(desc, CallOptions.DEFAULT.withDeadlineAfter(timeoutSeconds, TimeUnit.SECONDS))
-            val resultHolder = CompletableResult<ByteArray>()
-            call.start(object : ClientCall.Listener<ByteArray>() {
-                override fun onMessage(message: ByteArray) {
-                    resultHolder.complete(message)
-                }
-                override fun onClose(status: io.grpc.Status, trailers: io.grpc.Metadata) {
-                    if (!status.isOk && !resultHolder.isDone()) {
-                        resultHolder.completeExceptionally(status.asRuntimeException())
-                    }
-                }
-            }, io.grpc.Metadata())
-            call.request(1)
-            call.sendMessage(ByteArray(0))
-            call.halfClose()
-            val resp = resultHolder.await()
-            val (_, msg) = ProtoUtils.decodeResponse(resp)
-            if (msg.isNotBlank()) msg.trim() else null
-        } catch (_: Exception) {
-            null
         }
     }
 
@@ -241,7 +253,6 @@ class S1GrpcClient(
             executeViaMethod(activeMethodName, command, timeoutSeconds)
         } catch (e: StatusRuntimeException) {
             if (e.status.code == io.grpc.Status.Code.UNIMPLEMENTED) {
-                // If current method became unimplemented, try other candidates
                 for (fallback in candidateExecutionMethods.filter { it != activeMethodName }) {
                     try {
                         val res = executeViaMethod(fallback, command, timeoutSeconds)
@@ -391,5 +402,53 @@ echo "bound ${'$'}T"
                 return result ?: throw IllegalStateException("Result is null")
             }
         }
+    }
+
+    private class ScopedResolverProvider : NameResolverProvider() {
+        override fun newNameResolver(targetUri: URI, args: NameResolver.Args): NameResolver? {
+            if (SCHEME != targetUri.scheme) return null
+            return ScopedResolver(targetUri)
+        }
+
+        override fun getDefaultScheme(): String = SCHEME
+        override fun isAvailable(): Boolean = true
+        override fun priority(): Int = 5
+    }
+
+    private class ScopedResolver(private val uri: URI) : NameResolver() {
+        override fun getServiceAuthority(): String = "localhost"
+
+        override fun start(listener: Listener2) {
+            val path = uri.path?.replaceFirst("^/+".toRegex(), "") ?: ""
+            val parts = path.split("/")
+            if (parts.size != 2) {
+                listener.onError(io.grpc.Status.INVALID_ARGUMENT.withDescription("Invalid target: $uri"))
+                return
+            }
+            try {
+                val host = hexDecode(parts[0])
+                val port = parts[1].toInt()
+                val cleanHost = host.split("%")[0].trim('[', ']')
+                val scope = if (host.contains("%")) {
+                    host.split("%")[1].toIntOrNull()
+                } else null
+
+                val address = if (cleanHost.contains(":") && scope != null) {
+                    Inet6Address.getByAddress(null, InetAddress.getByName(cleanHost).address, scope)
+                } else {
+                    InetAddress.getByName(cleanHost)
+                }
+                val socket = InetSocketAddress(address, port)
+                val result = ResolutionResult.newBuilder()
+                    .setAddresses(Collections.singletonList(EquivalentAddressGroup(socket)))
+                    .setAttributes(Attributes.EMPTY)
+                    .build()
+                listener.onResult(result)
+            } catch (e: Exception) {
+                listener.onError(io.grpc.Status.INVALID_ARGUMENT.withDescription("Cannot resolve $uri: ${e.message}"))
+            }
+        }
+
+        override fun shutdown() {}
     }
 }
