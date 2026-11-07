@@ -1,6 +1,8 @@
 package com.asjohn720.s1mods.discovery
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -10,8 +12,6 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
 import java.io.InputStreamReader
-import java.net.DatagramPacket
-import java.net.DatagramSocket
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -23,7 +23,8 @@ data class DiscoveredScooter(
     val scope: Int? = null,
     val isPortOpen: Boolean = false,
     val interfaceName: String = "",
-    val source: String = ""
+    val source: String = "",
+    val displayName: String = "Ola Scooter"
 )
 
 object NetworkScanner {
@@ -53,26 +54,150 @@ object NetworkScanner {
 
     /**
      * Tests if TCP port [port] (default 50005) is open on [ip].
+     * Supports scoped IPv6 (e.g. fe80::...%ap0), raw IPv6, and IPv4.
      */
     fun testPort(ip: String, port: Int = 50005, scope: Int? = null, timeoutMs: Int = 700): Boolean {
         return try {
-            val socket = Socket()
-            val cleanIp = ip.split("%")[0].trim('[', ']')
-            val address = if (cleanIp.contains(":") && scope != null) {
-                Inet6Address.getByAddress(null, InetAddress.getByName(cleanIp).address, scope)
+            val trimmed = ip.trim()
+            val cleanHost = if (trimmed.contains("%")) {
+                trimmed
+            } else if (trimmed.contains(":") && scope != null) {
+                "$trimmed%$scope"
             } else {
-                InetAddress.getByName(cleanIp)
+                trimmed
             }
-            socket.connect(InetSocketAddress(address, port), timeoutMs)
-            socket.close()
-            true
+
+            val address = InetAddress.getByName(cleanHost)
+            Socket().use { socket ->
+                socket.connect(InetSocketAddress(address, port), timeoutMs)
+                true
+            }
         } catch (_: Exception) {
-            false
+            // Secondary fallback using raw IP string without brackets
+            try {
+                val rawIp = ip.split("%")[0].trim('[', ']')
+                val address = InetAddress.getByName(rawIp)
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress(address, port), timeoutMs)
+                    true
+                }
+            } catch (_: Exception) {
+                false
+            }
         }
     }
 
     /**
-     * Reads the Android kernel neighbor table via `ip neigh` shell command.
+     * Resolves active Wi-Fi and Hotspot network interface names.
+     */
+    private fun getActiveWifiInterfaces(context: Context): Set<String> {
+        val ifaces = mutableSetOf<String>()
+
+        // 1. Query ConnectivityManager for active Wi-Fi & Hotspot networks
+        try {
+            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            cm?.allNetworks?.forEach { network ->
+                val caps = cm.getNetworkCapabilities(network) ?: return@forEach
+                val link = cm.getLinkProperties(network) ?: return@forEach
+                if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                    link.interfaceName?.let { ifaces.add(it) }
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 2. Query NetworkInterface enum for active Wi-Fi / AP interfaces
+        try {
+            val netIfaces = NetworkInterface.getNetworkInterfaces()
+            while (netIfaces != null && netIfaces.hasMoreElements()) {
+                val iface = netIfaces.nextElement()
+                if (iface.isUp && !iface.isLoopback) {
+                    val name = iface.name
+                    if (name.startsWith("ap") || name.startsWith("wlan") ||
+                        name.startsWith("swlan") || name.startsWith("p2p") ||
+                        name.startsWith("softap")
+                    ) {
+                        ifaces.add(name)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 3. Common fallback interface names on Android OS
+        ifaces.addAll(listOf("ap0", "wlan0", "swlan0", "wlan1", "p2p0"))
+        return ifaces
+    }
+
+    /**
+     * Pings the IPv6 all-nodes multicast address (ff02::1%iface).
+     * All active devices on the Hotspot/Wi-Fi link respond with their link-local IPv6 address.
+     */
+    private fun runMulticastPing(iface: String): String {
+        return try {
+            val process = ProcessBuilder("ping6", "-c", "2", "-w", "2", "ff02::1%$iface")
+                .redirectErrorStream(true)
+                .start()
+            val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+            process.waitFor()
+            output
+        } catch (_: Exception) {
+            // Fallback for devices using ping -6
+            try {
+                val process = ProcessBuilder("ping", "-6", "-c", "2", "-W", "2", "ff02::1%$iface")
+                    .redirectErrorStream(true)
+                    .start()
+                val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+                process.waitFor()
+                output
+            } catch (_: Exception) {
+                ""
+            }
+        }
+    }
+
+    /**
+     * Parses ping output to extract responding neighbor link-local IPv6 addresses.
+     */
+    private fun parsePingOutput(output: String, fallbackIface: String): List<DiscoveredScooter> {
+        val neighbors = mutableListOf<DiscoveredScooter>()
+        if (output.isBlank()) return neighbors
+
+        for (line in output.lines()) {
+            val trimmed = line.trim()
+            if (trimmed.contains("bytes from", ignoreCase = true)) {
+                try {
+                    val afterFrom = trimmed.substringAfter("from ", "").trim()
+                    val ipToken = afterFrom.split("\\s+".toRegex()).firstOrNull() ?: ""
+                    val cleanToken = ipToken.removeSuffix(":").trim()
+
+                    if (cleanToken.isNotBlank() && cleanToken.contains(":")) {
+                        val rawIp = cleanToken.substringBefore("%").trim()
+                        val iface = if (cleanToken.contains("%")) {
+                            cleanToken.substringAfter("%").trim()
+                        } else {
+                            fallbackIface
+                        }
+
+                        if (rawIp.isNotBlank() && rawIp.startsWith("fe80", ignoreCase = true)) {
+                            val target = if (iface.isNotBlank()) "$rawIp%$iface" else rawIp
+                            val scopeIndex = NetworkInterface.getByName(iface)?.index
+                            neighbors.add(
+                                DiscoveredScooter(
+                                    ip = target,
+                                    scope = scopeIndex,
+                                    interfaceName = iface,
+                                    source = "multicast_ping"
+                                )
+                            )
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+        return neighbors
+    }
+
+    /**
+     * Reads kernel neighbor table via `ip neigh` shell command as a fallback.
      */
     private fun scanIpNeigh(): List<DiscoveredScooter> {
         val result = mutableListOf<DiscoveredScooter>()
@@ -80,8 +205,6 @@ object NetworkScanner {
             val process = Runtime.getRuntime().exec("ip neigh")
             BufferedReader(InputStreamReader(process.inputStream)).useLines { lines ->
                 lines.forEach { line ->
-                    // Example: "192.168.43.45 dev ap0 lladdr aa:bb:cc:dd:ee:ff REACHABLE"
-                    // Example: "fe80::1234:5678:9abc:def0 dev ap0 lladdr aa:bb:cc:dd:ee:ff REACHABLE"
                     val parts = line.split("\\s+".toRegex())
                     if (parts.size >= 4) {
                         val ip = parts[0]
@@ -98,15 +221,16 @@ object NetworkScanner {
                             )
                         )
 
-                        // Check if MAC is available to derive IPv6 if this was an IPv4 entry
+                        // If MAC address is present, also derive link-local IPv6
                         val lladdrIdx = parts.indexOf("lladdr")
                         if (lladdrIdx != -1 && lladdrIdx + 1 < parts.size) {
                             val mac = parts[lladdrIdx + 1]
                             val derivedIpv6 = macToIpv6(mac)
                             if (derivedIpv6 != null) {
+                                val target = if (ifaceName.isNotBlank()) "$derivedIpv6%$ifaceName" else derivedIpv6
                                 result.add(
                                     DiscoveredScooter(
-                                        ip = derivedIpv6,
+                                        ip = target,
                                         scope = scope,
                                         interfaceName = ifaceName,
                                         source = "mac_derivation"
@@ -122,43 +246,12 @@ object NetworkScanner {
     }
 
     /**
-     * Reads /proc/net/arp fallback (if accessible on older or unrestricted ROMs).
-     */
-    private fun scanProcArp(): List<DiscoveredScooter> {
-        val result = mutableListOf<DiscoveredScooter>()
-        try {
-            val arp = File("/proc/net/arp")
-            if (arp.exists() && arp.canRead()) {
-                BufferedReader(FileReader(arp)).useLines { lines ->
-                    lines.drop(1).forEach { line ->
-                        val parts = line.split("\\s+".toRegex())
-                        if (parts.size >= 6 && parts[0].isNotEmpty() && parts[0] != "0.0.0.0") {
-                            val ip = parts[0]
-                            val mac = parts[3]
-                            val iface = parts[5]
-                            val scope = NetworkInterface.getByName(iface)?.index
-
-                            result.add(DiscoveredScooter(ip = ip, scope = scope, interfaceName = iface, source = "proc_arp"))
-
-                            val derivedIpv6 = macToIpv6(mac)
-                            if (derivedIpv6 != null) {
-                                result.add(DiscoveredScooter(ip = derivedIpv6, scope = scope, interfaceName = iface, source = "arp_mac"))
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (_: Exception) {}
-        return result
-    }
-
-    /**
      * Determines the active Wi-Fi or Hotspot subnet prefix (e.g. "192.168.43." on tethering).
      */
     fun getLocalSubnet(): Pair<String, Int?>? {
         try {
             val ifaces = NetworkInterface.getNetworkInterfaces()
-            while (ifaces.hasMoreElements()) {
+            while (ifaces != null && ifaces.hasMoreElements()) {
                 val iface = ifaces.nextElement()
                 if (iface.isUp && !iface.isLoopback) {
                     val addrs = iface.inetAddresses
@@ -178,13 +271,13 @@ object NetworkScanner {
     }
 
     /**
-     * Fast-sweeps the local /24 subnet (e.g. 192.168.43.2 to 254) testing port 50005.
+     * Sweeps local /24 subnet testing port 50005.
      */
     suspend fun sweepSubnetIpv4(subnetPrefix: String): DiscoveredScooter? = withContext(Dispatchers.IO) {
         val candidates = (2..254).map { "$subnetPrefix$it" }
         val jobs = candidates.map { candidateIp ->
             async {
-                if (testPort(candidateIp, 50005, null, 400)) {
+                if (testPort(candidateIp, 50005, null, 350)) {
                     DiscoveredScooter(ip = candidateIp, scope = null, isPortOpen = true, source = "ipv4_sweep")
                 } else null
             }
@@ -193,10 +286,11 @@ object NetworkScanner {
     }
 
     /**
-     * Master auto-discovery function trying multiple discovery vectors:
-     * 1. ip neigh output (direct IPv6 & MAC derivation)
-     * 2. /proc/net/arp (if accessible)
-     * 3. Local IPv4 Hotspot Subnet sweep (testing port 50005)
+     * Master auto-discovery function matching Axiom's discovery mechanism:
+     * 1. Multi-interface IPv6 multicast ping (ping6 ff02::1%iface).
+     * 2. Direct parsing of neighbor ICMP echo responses.
+     * 3. Concurrent verification of TCP Port 50005.
+     * 4. Secondary fallback: ip neigh table & IPv4 subnet sweep.
      */
     suspend fun scanForScooter(context: Context): DiscoveredScooter? = withContext(Dispatchers.IO) {
         try {
@@ -207,38 +301,58 @@ object NetworkScanner {
             }
         } catch (_: Exception) {}
 
-        val candidateList = mutableListOf<DiscoveredScooter>()
+        try {
+            val candidateList = mutableListOf<DiscoveredScooter>()
 
-        // 1. Check ip neigh
-        candidateList.addAll(scanIpNeigh())
-
-        // 2. Check /proc/net/arp
-        candidateList.addAll(scanProcArp())
-
-        // Test all discovered candidates from neighbor tables on port 50005
-        val neighborJobs = candidateList.distinctBy { it.ip }.map { candidate ->
-            async {
-                val open = testPort(candidate.ip, 50005, candidate.scope, 800)
-                if (open) candidate.copy(isPortOpen = true) else null
+            // 1. Primary: IPv6 Multicast Ping across all Wi-Fi / Hotspot interfaces
+            val ifaces = getActiveWifiInterfaces(context)
+            for (iface in ifaces) {
+                val pingOutput = runMulticastPing(iface)
+                val neighbors = parsePingOutput(pingOutput, iface)
+                candidateList.addAll(neighbors)
             }
-        }
-        val neighborFound = neighborJobs.awaitAll().filterNotNull().firstOrNull()
-        if (neighborFound != null) {
+
+            // Test candidates found from multicast ping immediately
+            if (candidateList.isNotEmpty()) {
+                val pingJobs = candidateList.distinctBy { it.ip }.map { candidate ->
+                    async {
+                        val open = testPort(candidate.ip, 50005, candidate.scope, 800)
+                        if (open) candidate.copy(isPortOpen = true) else null
+                    }
+                }
+                val pingFound = pingJobs.awaitAll().filterNotNull().firstOrNull()
+                if (pingFound != null) {
+                    return@withContext pingFound
+                }
+            }
+
+            // 2. Secondary fallback: ip neigh table
+            val neighCandidates = scanIpNeigh()
+            if (neighCandidates.isNotEmpty()) {
+                val neighJobs = neighCandidates.distinctBy { it.ip }.map { candidate ->
+                    async {
+                        val open = testPort(candidate.ip, 50005, candidate.scope, 800)
+                        if (open) candidate.copy(isPortOpen = true) else null
+                    }
+                }
+                val neighFound = neighJobs.awaitAll().filterNotNull().firstOrNull()
+                if (neighFound != null) {
+                    return@withContext neighFound
+                }
+            }
+
+            // 3. Tertiary fallback: IPv4 subnet sweep (Hotspot / local subnet)
+            val subnetInfo = getLocalSubnet()
+            if (subnetInfo != null) {
+                val sweepFound = sweepSubnetIpv4(subnetInfo.first)
+                if (sweepFound != null) {
+                    return@withContext sweepFound
+                }
+            }
+
+            null
+        } finally {
             try { multicastLock?.release() } catch (_: Exception) {}
-            return@withContext neighborFound
         }
-
-        // 3. Subnet sweep on local IPv4 (Hotspot / Wi-Fi subnet)
-        val subnetInfo = getLocalSubnet()
-        if (subnetInfo != null) {
-            val sweepFound = sweepSubnetIpv4(subnetInfo.first)
-            if (sweepFound != null) {
-                try { multicastLock?.release() } catch (_: Exception) {}
-                return@withContext sweepFound
-            }
-        }
-
-        try { multicastLock?.release() } catch (_: Exception) {}
-        null
     }
 }
