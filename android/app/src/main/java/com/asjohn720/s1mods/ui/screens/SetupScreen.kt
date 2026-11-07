@@ -35,6 +35,7 @@ import com.asjohn720.s1mods.discovery.NetworkScanner
 import com.asjohn720.s1mods.model.ModApp
 import com.asjohn720.s1mods.model.ScooterManager
 import com.asjohn720.s1mods.model.SetupStep
+import com.asjohn720.s1mods.model.VehicleSummary
 import com.asjohn720.s1mods.ui.components.VehicleConnectionCard
 import com.asjohn720.s1mods.ui.theme.*
 import kotlinx.coroutines.launch
@@ -58,6 +59,7 @@ fun SetupScreen(manager: ScooterManager) {
     val success by manager.setupSuccess.collectAsState()
     val errorMessage by manager.errorMessage.collectAsState()
     val logs by manager.logs.collectAsState()
+    val vehicleSummary by manager.vehicleSummary.collectAsState()
 
     var activeSubTab by remember { mutableStateOf(SetupSubTab.SETUP) }
     var showSetupPackageDialog by remember { mutableStateOf(false) }
@@ -195,6 +197,9 @@ fun SetupScreen(manager: ScooterManager) {
                     manager = manager,
                     isRunning = isRunning
                 )
+
+                // My Scooter: model + MoveOS + mod-support, once known.
+                vehicleSummary?.let { MyScooterCard(it) }
 
                 // Active Setup Status / Start Action Button
                 if (isRunning) {
@@ -344,7 +349,7 @@ fun SetupScreen(manager: ScooterManager) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Start setup",
+                            text = "Start Modding",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -697,5 +702,63 @@ fun SetupScreen(manager: ScooterManager) {
             containerColor = SurfaceDark,
             shape = RoundedCornerShape(12.dp)
         )
+    }
+}
+
+@Composable
+private fun MyScooterCard(summary: VehicleSummary) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = "My Scooter",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextMuted
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Two columns: Model | MoveOS version
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Model", fontSize = 10.sp, color = TextMuted)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(summary.model, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("MoveOS", fontSize = 10.sp, color = TextMuted)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(summary.moveOs, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Single full-width row: mod support
+            val badgeColor = if (summary.supported) StatusOk else StatusWarning
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(badgeColor.copy(alpha = 0.15f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            ) {
+                Icon(
+                    if (summary.supported) Icons.Default.CheckCircle else Icons.Default.Warning,
+                    contentDescription = null, tint = badgeColor, modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    if (summary.supported) "Mods supported" else "Mods not supported",
+                    fontSize = 13.sp, fontWeight = FontWeight.Medium, color = badgeColor
+                )
+            }
+        }
     }
 }

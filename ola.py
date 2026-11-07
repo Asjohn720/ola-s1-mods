@@ -16,8 +16,8 @@ Examples
 A link-local address needs a scope. Write it as `fe80::1%6` or pass `--scope 6`.
 
 The RPC runs commands as root, but it does NOT use a shell. `ola.py shell`
-wraps your command in `sh -c` and replaces spaces with `${IFS}` so pipes and
-redirection work. Use `--raw` to send a command exactly as typed.
+base64-encodes your command and pipes it into `sh`, so pipes, redirection,
+quotes and spaced paths all work. Use `--raw` to send a command exactly as typed.
 """
 from __future__ import annotations
 
@@ -78,13 +78,14 @@ def _cmd_payload(text: str) -> bytes:
 
 def _read_varint(buf: bytes, i: int):
     value = shift = 0
-    while True:
+    while i < len(buf):                 # stop at a truncated reply, don't IndexError
         b = buf[i]
         i += 1
         value |= (b & 0x7F) << shift
         if not b & 0x80:
             return value, i
         shift += 7
+    return value, i
 
 
 def _decode_response(buf: bytes):
@@ -169,8 +170,14 @@ def run(channel, command: str, timeout: float = 30.0, quiet: bool = False):
 
 
 def sh_wrap(command: str) -> str:
-    """Make an arbitrary command survive the daemon's whitespace split."""
-    return "sh -c " + command.replace(" ", "${IFS}")
+    """Make an arbitrary command survive the daemon's whitespace split.
+
+    The command is base64-encoded and piped into sh, so spaces inside quotes
+    and filenames survive. Plain ${IFS} replacement split `echo "a b"` and
+    paths with spaces into separate arguments.
+    """
+    b64 = base64.b64encode(command.encode()).decode()
+    return "sh -c echo${IFS}" + b64 + "|base64${IFS}-d|sh"
 
 
 def ok(status: int) -> bool:
@@ -259,7 +266,7 @@ def info(channel):
 
 def interactive(channel, raw: bool):
     print("Root shell. Type a command, or 'exit'.")
-    print("Spaces are converted to ${IFS} unless --raw is set.")
+    print("Commands run through sh unless --raw is set.")
     while True:
         try:
             line = input("ola> ").strip()
