@@ -72,6 +72,15 @@ class AdbManager(private val context: Context) {
     }
 
     /**
+     * Uninstalls a package cleanly from the vehicle.
+     */
+    suspend fun uninstallPackage(packageName: String): String = withContext(Dispatchers.IO) {
+        val client = activeDadb ?: throw IllegalStateException("ADB not connected")
+        val out = client.shell("pm uninstall $packageName").allOutput.trim()
+        out
+    }
+
+    /**
      * Runs shell command via ADB and returns stdout + stderr.
      */
     suspend fun shell(command: String): String = withContext(Dispatchers.IO) {

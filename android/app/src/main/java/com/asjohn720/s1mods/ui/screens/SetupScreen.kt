@@ -47,7 +47,7 @@ fun SetupScreen(manager: ScooterManager) {
     var tempScope by remember { mutableStateOf(scooterScope?.toString() ?: "") }
     var isTestingPort by remember { mutableStateOf(false) }
 
-    // App selection state for setup (all 4 checked by default)
+    // App selection state for setup: Balls, Android Auto, Music Mod checked by default
     var selectedApps by remember { mutableStateOf(ModApp.values().toSet()) }
 
     val listState = rememberLazyListState()
@@ -457,6 +457,7 @@ fun SetupScreen(manager: ScooterManager) {
                     )
 
                     // App Selection Checkboxes (Total 4 apps)
+                    // App Selection Checkboxes (3 core apps)
                     ModApp.values().forEach { app ->
                         val isChecked = selectedApps.contains(app)
                         Row(
@@ -464,11 +465,7 @@ fun SetupScreen(manager: ScooterManager) {
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(6.dp))
                                 .clickable(enabled = !app.isMandatory) {
-                                    selectedApps = if (isChecked) {
-                                        selectedApps - app
-                                    } else {
-                                        selectedApps + app
-                                    }
+                                    selectedApps = if (isChecked) selectedApps - app else selectedApps + app
                                 }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
