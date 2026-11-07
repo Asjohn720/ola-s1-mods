@@ -60,14 +60,15 @@ object ProtoUtils {
     }
 
     /**
-     * Decodes the response buffer from ExecuteADBCommand.
-     * Response fields:
-     * Field 1 = status code (varint, wire type 0)
+     * Decodes the response buffer from gRPC calls.
+     * Response fields typically:
+     * Field 1 = status code (varint, wire type 0) OR string payload
      * Field 2 = message string (length-delimited, wire type 2)
      */
     fun decodeResponse(buf: ByteArray): Pair<Int, String> {
         var status = 0
         var message = ""
+        var fallbackStr = ""
         var i = 0
 
         while (i < buf.size) {
@@ -88,7 +89,11 @@ object ProtoUtils {
                     val length = len.toInt()
                     if (i + length <= buf.size) {
                         val str = String(buf, i, length, StandardCharsets.UTF_8)
-                        if (field == 2) message = str
+                        if (field == 2) {
+                            message = str
+                        } else if (fallbackStr.isEmpty()) {
+                            fallbackStr = str
+                        }
                         i += length
                     } else {
                         break
@@ -97,7 +102,46 @@ object ProtoUtils {
                 else -> break
             }
         }
+        if (message.isEmpty() && fallbackStr.isNotEmpty()) {
+            message = fallbackStr
+        }
         return Pair(status, message)
+    }
+
+    /**
+     * Extracts all wire fields from a protobuf buffer for introspection.
+     */
+    fun decodeProtoFields(buf: ByteArray): Map<Int, Any> {
+        val result = mutableMapOf<Int, Any>()
+        var i = 0
+        while (i < buf.size) {
+            val (key, nextI) = readVarint(buf, i)
+            i = nextI
+            val field = (key ushr 3).toInt()
+            val wire = (key and 0x7).toInt()
+
+            when (wire) {
+                0 -> {
+                    val (valVarint, endI) = readVarint(buf, i)
+                    i = endI
+                    result[field] = valVarint
+                }
+                2 -> {
+                    val (len, endI) = readVarint(buf, i)
+                    i = endI
+                    val length = len.toInt()
+                    if (i + length <= buf.size) {
+                        val str = String(buf, i, length, StandardCharsets.UTF_8)
+                        result[field] = str
+                        i += length
+                    } else {
+                        break
+                    }
+                }
+                else -> break
+            }
+        }
+        return result
     }
 }
 

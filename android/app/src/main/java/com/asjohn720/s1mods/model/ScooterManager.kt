@@ -94,7 +94,9 @@ class ScooterManager(private val context: Context) {
         grpcClient?.close()
         try {
             val client = S1GrpcClient(host = ip, port = 50005, scope = scope)
-            client.connect(timeoutSeconds = 6L)
+            client.connect(timeoutSeconds = 6L) { logLine ->
+                log(logLine)
+            }
             grpcClient = client
             scooterIp.value = ip
             scooterScope.value = scope
@@ -103,7 +105,7 @@ class ScooterManager(private val context: Context) {
             if (swVer != null) {
                 log("[+] Detected Vehicle MoveOS: $swVer")
             }
-            log("[+] Successfully established gRPC session via method ${client.activeMethodName}!")
+            log("[+] Established gRPC session (Service: ${client.activeServiceName}, Method: ${client.activeMethodName})")
         } catch (e: Exception) {
             isConnected.value = false
             log("[!] gRPC connection failed: ${e.javaClass.simpleName}: ${e.message}")
@@ -115,7 +117,7 @@ class ScooterManager(private val context: Context) {
      * Runs comprehensive network diagnostics to inspect interfaces, neighbor tables, and port reachability.
      */
     suspend fun runNetworkDiagnostics() = withContext(Dispatchers.IO) {
-        log("=== NETWORK DIAGNOSTICS LOG ===")
+        log("=== NETWORK DIAGNOSTICS & RPC AUDIT ===")
         log("[*] Active Local Network Interfaces:")
         val ifaces = NetworkScanner.getNetworkInterfacesInfo()
         if (ifaces.isEmpty()) {
@@ -139,6 +141,14 @@ class ScooterManager(private val context: Context) {
             if (res.isOpen) {
                 log("    [+] Port 50005 is OPEN (${res.timeTakenMs}ms)!")
                 isConnected.value = true
+                val client = grpcClient ?: S1GrpcClient(target, 50005, scooterScope.value).also { grpcClient = it }
+                try {
+                    client.auditMethodsAndServices { logLine ->
+                        log(logLine)
+                    }
+                } catch (e: Exception) {
+                    log("    [!] Audit error: ${e.message}")
+                }
             } else {
                 log("    [!] Port 50005 unreachable: ${res.errorDetails}")
                 if (res.errorDetails?.contains("Connection refused") == true) {
