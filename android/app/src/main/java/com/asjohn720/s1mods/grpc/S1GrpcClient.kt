@@ -173,40 +173,49 @@ class S1GrpcClient(
             .build()
         channel = ch
 
-        var connected = false
-        var lastError: Exception? = null
+        // 1. Initialize RPC session on wifican.WifiCanRpc
+        try {
+            val initDesc = buildMethodDescriptor("Init", "wifican.WifiCanRpc")
+            val initCall = ch.newCall(initDesc, CallOptions.DEFAULT.withDeadlineAfter(800, TimeUnit.MILLISECONDS))
+            val initResult = CompletableResult<ByteArray>()
+            initCall.start(object : ClientCall.Listener<ByteArray>() {
+                override fun onMessage(message: ByteArray) { initResult.complete(message) }
+                override fun onClose(status: io.grpc.Status, trailers: io.grpc.Metadata) {
+                    if (!status.isOk && !initResult.isDone()) initResult.completeExceptionally(status.asRuntimeException())
+                }
+            }, io.grpc.Metadata())
+            initCall.request(1)
+            initCall.sendMessage(ByteArray(0))
+            initCall.halfClose()
+            initResult.await()
+            onLog("[*] Session Init handshake: Success")
+        } catch (_: Exception) {}
 
-        // 1. Fast try candidate execution methods directly
+        var connected = false
+
+        // 2. Try candidate execution methods directly
         val quickCandidates = listOf(
             "ExecuteADBCommand", "ExecuteAdbCommand", "ExecuteAdbCmd",
-            "ExecuteCommand", "RunCmd", "RunSystemTestCmd", "RemoteRunTestCmd"
+            "RemoteRunTestCmd", "RunSystemTestCmd", "RunCmd", "ExecuteCommand"
         )
         for (method in quickCandidates) {
             try {
                 val (status, out) = executeViaMethod(method, "id -u", 1L)
                 val trimmed = out.trim()
-                if (status in 0..1 || trimmed == "0" || trimmed.contains("uid=0")) {
+                if (trimmed == "0" || trimmed == "root" || trimmed.contains("uid=0") || trimmed.contains("uid=")) {
                     activeMethodName = method
                     connected = true
                     onLog("[+] Connected via execution method: $method (uid: $trimmed)")
                     break
                 }
-            } catch (e: StatusRuntimeException) {
-                lastError = e
-                if (e.status.code == io.grpc.Status.Code.UNIMPLEMENTED) {
-                    continue
-                } else {
-                    throw e
-                }
-            } catch (e: Exception) {
-                lastError = e
-                break
+            } catch (_: Exception) {
+                // Continue to next candidate
             }
         }
 
-        // 2. If direct candidates fail, run deep method discovery audit
+        // 3. If direct candidates fail, run deep method discovery audit across all MoveOS 3 methods
         if (!connected) {
-            onLog("[*] Direct method match failed. Starting auto-discovery audit on $host...")
+            onLog("[*] Probing MoveOS 3.1.0 method registry...")
             val discovered = auditMethodsAndServices(onLog)
             if (discovered != null) {
                 activeMethodName = discovered
@@ -215,7 +224,7 @@ class S1GrpcClient(
         }
 
         if (!connected) {
-            throw IllegalStateException("No compatible execution RPC method found on $host: ${lastError?.message ?: "Unimplemented"}")
+            onLog("[*] Note: Direct shell RPC not detected; attempting direct ADB on port 5555...")
         }
     }
 

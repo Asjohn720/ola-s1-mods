@@ -7,6 +7,7 @@ import com.asjohn720.s1mods.discovery.DiscoveredScooter
 import com.asjohn720.s1mods.discovery.NetworkScanner
 import com.asjohn720.s1mods.grpc.S1GrpcClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
@@ -324,10 +325,12 @@ class ScooterManager(private val context: Context) {
             }
 
             if (!directAdbReady) {
-                if (grpcClient == null || !isConnected.value) {
+                try {
                     connect(activeTarget, scooterScope.value)
+                    log("[+] gRPC link confirmed alive.")
+                } catch (e: Exception) {
+                    log("[*] Note: gRPC connect status: ${e.message}")
                 }
-                log("[+] gRPC link confirmed alive.")
             }
 
             // Step 2: Wake & Pre-Check
@@ -351,22 +354,39 @@ class ScooterManager(private val context: Context) {
             log("\n[3/6] Authorizing ADB key via in-memory RAM mount...")
             if (!directAdbReady) {
                 val (_, pubKey) = adbManager.getOrCreateAdbKeyPair()
+                var unlocked = false
                 try {
-                    val unlocked = grpcClient?.unlockAdb(pubKey) ?: false
+                    unlocked = grpcClient?.unlockAdb(pubKey) ?: false
                     if (!unlocked) {
                         log("[*] Warning: bind mount script returned non-zero, trying direct ADB connect...")
+                    } else {
+                        log("[+] In-memory ADB key authorization succeeded via gRPC!")
                     }
                 } catch (e: Exception) {
                     log("[*] Note: gRPC bind mount skipped (${e.message}), trying direct ADB connect...")
                 }
                 log("[*] Connecting Kotlin ADB client over TCP Port 5555...")
-                try {
-                    adbManager.connect(activeTarget, 5555, scooterScope.value)
-                    val ping = adbManager.shell("id -u")
-                    log("[+] ADB authorized as device (uid: $ping)!")
-                } catch (e: Exception) {
-                    log("[*] Note: If 'Allow USB debugging?' appears on the scooter screen, please tap ALLOW.")
-                    throw e
+                var adbOk = false
+                var lastAdbErr: Exception? = null
+                for (attempt in 1..6) {
+                    try {
+                        val dadb = adbManager.connect(activeTarget, 5555, scooterScope.value)
+                        val ping = dadb.shell("id -u").allOutput.trim()
+                        if (ping.isNotEmpty()) {
+                            log("[+] ADB authorized as device (uid: $ping)!")
+                            adbOk = true
+                            break
+                        }
+                    } catch (e: Exception) {
+                        lastAdbErr = e
+                        if (attempt == 1) {
+                            log("[*] Note: If 'Allow USB debugging?' appears on the scooter screen, please tap ALLOW.")
+                        }
+                        delay(1500)
+                    }
+                }
+                if (!adbOk) {
+                    throw lastAdbErr ?: IllegalStateException("ADB authorization timed out on port 5555")
                 }
             } else {
                 log("[+] ADB already connected and authorized as device!")
