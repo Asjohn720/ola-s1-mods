@@ -2,33 +2,34 @@ package com.asjohn720.s1mods.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Neutral Palette - Deep Slate Ramp
-val BgDark = Color(0xFF0C0F14)
-val SurfaceDark = Color(0xFF131822)
-val SurfaceVariantDark = Color(0xFF1A212E)
-val SurfaceHighlight = Color(0xFF222B3B)
-val CardBorder = Color(0xFF242C3B)
-val DividerColor = Color(0xFF1E2534)
+// Neutral black ramp
+val BgDark = Color(0xFF000000)
+val SurfaceDark = Color(0xFF0E0E0E)
+val SurfaceVariantDark = Color(0xFF181818)
+val SurfaceHighlight = Color(0xFF222222)
+val CardBorder = Color(0xFF242424)
+val DividerColor = Color(0xFF1A1A1A)
 
-// Purposeful Accents & States
-val AccentMint = Color(0xFF10B981)          // Primary functional accent (connected, success)
-val AccentMintSubtle = Color(0x1F10B981)    // Low-opacity tint for active states
-val AccentSky = Color(0xFF38BDF8)           // Secondary accent for actionable inputs
-val AccentSkySubtle = Color(0x1F38BDF8)
-val StatusWarning = Color(0xFFF59E0B)       // Pre-flight & warning notifications
-val StatusDanger = Color(0xFFEF4444)        // Error states & offline indicator
+// Monochrome accents: primary actions are white-on-black
+val AccentMint = Color(0xFFEDEDED)
+val AccentMintSubtle = Color(0x14FFFFFF)
+val AccentSky = Color(0xFFA1A1A1)
+val AccentSkySubtle = Color(0x0FFFFFFF)
 
-// Typography Roles (WCAG AA compliant contrast)
-val TextPrimary = Color(0xFFF8FAFC)         // 96% contrast
-val TextSecondary = Color(0xFF94A3B8)       // 60% contrast
-val TextMuted = Color(0xFF64748B)           // 40% contrast
+// Status colors stay muted; used only where state must read at a glance
+val StatusOk = Color(0xFF3FB950)
+val StatusWarning = Color(0xFFD29922)
+val StatusDanger = Color(0xFFE5484D)
 
-// Diagnostic Console
-val TerminalBg = Color(0xFF090C10)
-val TerminalBorder = Color(0xFF1B222D)
+val TextPrimary = Color(0xFFEDEDED)
+val TextSecondary = Color(0xFFA1A1A1)
+val TextMuted = Color(0xFF6E6E6E)
 
-// Backwards-compatible aliases for existing references
-val ElectricGreen = AccentMint
+val TerminalBg = Color(0xFF050505)
+val TerminalBorder = Color(0xFF1F1F1F)
+
+// Backwards-compatible aliases
+val ElectricGreen = StatusOk
 val CyberCyan = AccentSky
 val ElectricYellow = StatusWarning
 val DangerRed = StatusDanger

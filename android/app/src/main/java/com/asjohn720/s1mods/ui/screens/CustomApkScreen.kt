@@ -290,8 +290,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     )
                 } else {
                     Text(
-                        text = if (isConnected) "Tap the reload button above to query live scooter memory."
-                        else "Connect scooter to MoveOS port 50005 to read live RAM.",
+                        text = if (isConnected) "Tap refresh to read" else "Not connected",
                         fontSize = 11.sp,
                         color = TextMuted
                     )
@@ -319,7 +318,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Notice: MoveOS safety daemons & cluster share RAM. Avoid heavy background apps to prevent display restarts.",
+                    text = "Heavy apps can restart the display.",
                     fontSize = 11.sp,
                     color = TextSecondary,
                     lineHeight = 14.sp
@@ -343,7 +342,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(StatusDanger))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Vehicle not connected. Connect on the Setup tab to detect installed apps and install/uninstall.",
+                        text = "Not connected. Connect from Setup.",
                         fontSize = 11.sp,
                         color = TextMuted
                     )
@@ -367,15 +366,10 @@ fun CustomApkScreen(manager: ScooterManager) {
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "S1 Optimized Apps",
+                            text = "Mods",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TextPrimary
-                        )
-                        Text(
-                            text = "Lightweight apps with automatic permission setup",
-                            fontSize = 11.sp,
-                            color = TextSecondary
                         )
                     }
 
@@ -402,7 +396,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     app = ModApp.BALLS,
                     icon = Icons.Default.Navigation,
                     size = "1.4 MB",
-                    desc = "Floating Back, Home & Settings touch overlay buttons",
+                    desc = "Floating nav buttons",
                     isInstalled = installedPackages.contains(ModApp.BALLS.packageName),
                     actionInProgress = activeAppAction,
                     onOpen = {
@@ -423,7 +417,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     onInstall = {
                         pendingConfirmation = AppConfirmation(
                             title = "Install Balls Navigation?",
-                            message = "Are you sure you want to install Balls Navigation? Floating touch overlay and accessibility permissions will be configured automatically.",
+                            message = "Permissions are set up automatically.",
                             confirmButtonText = "Install",
                             isDestructive = false
                         ) {
@@ -445,7 +439,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     onUninstall = {
                         pendingConfirmation = AppConfirmation(
                             title = "Uninstall Balls Navigation?",
-                            message = "Are you sure you want to uninstall Balls Navigation from your vehicle?",
+                            message = "It will be removed from the scooter.",
                             confirmButtonText = "Uninstall",
                             isDestructive = true
                         ) {
@@ -473,7 +467,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     app = ModApp.MUSIC,
                     icon = Icons.Default.MusicNote,
                     size = "18.3 MB",
-                    desc = "Ad-free streaming & offline player with background audio",
+                    desc = "Ad-free music",
                     isInstalled = installedPackages.contains(ModApp.MUSIC.packageName),
                     actionInProgress = activeAppAction,
                     onOpen = {
@@ -494,7 +488,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     onInstall = {
                         pendingConfirmation = AppConfirmation(
                             title = "Install Music Mod?",
-                            message = "Are you sure you want to install Music Mod on your vehicle?",
+                            message = "It will be installed on the scooter.",
                             confirmButtonText = "Install",
                             isDestructive = false
                         ) {
@@ -516,7 +510,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     onUninstall = {
                         pendingConfirmation = AppConfirmation(
                             title = "Uninstall Music Mod?",
-                            message = "Are you sure you want to uninstall Music Mod from your vehicle?",
+                            message = "It will be removed from the scooter.",
                             confirmButtonText = "Uninstall",
                             isDestructive = true
                         ) {
@@ -544,7 +538,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     app = ModApp.ANDROID_AUTO,
                     icon = Icons.Default.DirectionsCar,
                     size = "20.9 MB",
-                    desc = "Wireless projection: Google Maps, Spotify & phone calls on screen",
+                    desc = "Maps, music and calls",
                     isInstalled = installedPackages.contains(ModApp.ANDROID_AUTO.packageName),
                     actionInProgress = activeAppAction,
                     onOpen = {
@@ -565,7 +559,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     onInstall = {
                         pendingConfirmation = AppConfirmation(
                             title = "Install Android Auto?",
-                            message = "Are you sure you want to install Android Auto? Wireless projection, Microphone, and Location permissions will be configured automatically.",
+                            message = "Permissions are set up automatically.",
                             confirmButtonText = "Install",
                             isDestructive = false
                         ) {
@@ -587,7 +581,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     onUninstall = {
                         pendingConfirmation = AppConfirmation(
                             title = "Uninstall Android Auto?",
-                            message = "Are you sure you want to uninstall Android Auto from your vehicle?",
+                            message = "It will be removed from the scooter.",
                             confirmButtonText = "Uninstall",
                             isDestructive = true
                         ) {
@@ -620,15 +614,10 @@ fun CustomApkScreen(manager: ScooterManager) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Downloadable Apps & Addons",
+                    text = "Downloads",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
-                )
-                Text(
-                    text = "Official online APKs. Download to phone, then stream-install directly to scooter.",
-                    fontSize = 11.sp,
-                    color = TextSecondary
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -697,7 +686,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                         onInstall = {
                             pendingConfirmation = AppConfirmation(
                                 title = "Install ${onlineApp.displayName}?",
-                                message = "Are you sure you want to install ${onlineApp.displayName} on your scooter? (Note: Web browsers have higher RAM requirements).",
+                                message = "Browsers use a lot of RAM.",
                                 confirmButtonText = "Install",
                                 isDestructive = false
                             ) {
@@ -719,7 +708,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                         onUninstall = {
                             pendingConfirmation = AppConfirmation(
                                 title = "Uninstall ${onlineApp.displayName}?",
-                                message = "Are you sure you want to uninstall ${onlineApp.displayName} from your scooter?",
+                                message = "It will be removed from the scooter.",
                                 confirmButtonText = "Uninstall",
                                 isDestructive = true
                             ) {
@@ -753,17 +742,10 @@ fun CustomApkScreen(manager: ScooterManager) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Custom APK Sideload",
+                    text = "Install APK",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = TextPrimary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Pick any .apk file from your phone storage to install onto MoveOS.",
-                    fontSize = 11.sp,
-                    color = TextSecondary,
-                    lineHeight = 15.sp
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -776,7 +758,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                 ) {
                     Icon(Icons.Default.FileOpen, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (selectedName != null) "Change Package" else "Browse APK File", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text(if (selectedName != null) "Change file" else "Choose file", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
 
                 if (selectedName != null) {
@@ -788,9 +770,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                             .background(SurfaceVariantDark)
                             .padding(12.dp)
                     ) {
-                        Text(text = "Selected Package", fontSize = 11.sp, color = TextMuted)
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(text = selectedName ?: "", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                                                Text(text = selectedName ?: "", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(text = String.format("%.2f MB", selectedSizeMb ?: 0.0), fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = TextSecondary)
                     }
@@ -803,7 +783,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                             val name = selectedName ?: "Custom APK"
                             pendingConfirmation = AppConfirmation(
                                 title = "Install $name?",
-                                message = "Are you sure you want to sideload $name onto your scooter?",
+                                message = "Install $name on the scooter?",
                                 confirmButtonText = "Install",
                                 isDestructive = false
                             ) {

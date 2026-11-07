@@ -43,7 +43,7 @@ fun ShellScreen(manager: ScooterManager) {
 
     var commandInput by remember { mutableStateOf("id -u") }
     var isRunning by remember { mutableStateOf(false) }
-    var outputHistory by remember { mutableStateOf(listOf("# Root Terminal (uid 0)\n# Enter command or select a preset:")) }
+    var outputHistory by remember { mutableStateOf(listOf("# root shell")) }
 
     val presets = listOf(
         "id -u",
@@ -67,7 +67,7 @@ fun ShellScreen(manager: ScooterManager) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, StatusDanger.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                    .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
                 colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -86,10 +86,7 @@ fun ShellScreen(manager: ScooterManager) {
                             Icon(Icons.Default.Warning, contentDescription = null, tint = StatusDanger, modifier = Modifier.size(20.dp))
                         }
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("High Risk Feature", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = StatusDanger)
-                            Text("Root Access Warning", fontSize = 11.sp, color = TextMuted)
-                        }
+                        Text("Root shell", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                     }
 
                     Column(
@@ -101,22 +98,10 @@ fun ShellScreen(manager: ScooterManager) {
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "• Unrestricted Root (UID 0): This terminal executes arbitrary root shell commands on the vehicle's internal Android head unit.",
-                            fontSize = 11.sp,
-                            color = TextPrimary,
-                            lineHeight = 15.sp
-                        )
-                        Text(
-                            text = "• Risk of Bricking: Running untested or dangerous commands can corrupt system partitions, trigger bootloops, or permanently brick your scooter's display.",
-                            fontSize = 11.sp,
-                            color = StatusDanger,
-                            lineHeight = 15.sp
-                        )
-                        Text(
-                            text = "• No Warranty / Developer Disclaimer: The app author assumes ZERO liability for any damage, warranty voidance, or software issues resulting from commands run in this terminal. Do NOT use if you are not an expert.",
-                            fontSize = 11.sp,
+                            text = "Commands run as root on the scooter. A wrong command can brick the display. No warranty; the author is not liable.",
+                            fontSize = 13.sp,
                             color = TextSecondary,
-                            lineHeight = 15.sp
+                            lineHeight = 19.sp
                         )
                     }
 
@@ -137,7 +122,7 @@ fun ShellScreen(manager: ScooterManager) {
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "I understand the risks, accept full responsibility, and agree that the author is not liable.",
+                            text = "I understand and accept the risk",
                             fontSize = 11.sp,
                             color = TextPrimary,
                             lineHeight = 15.sp
@@ -156,7 +141,7 @@ fun ShellScreen(manager: ScooterManager) {
                             disabledContentColor = TextMuted
                         )
                     ) {
-                        Text("I Agree & Unlock Terminal", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text("Unlock", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     }
                 }
             }
@@ -171,7 +156,7 @@ fun ShellScreen(manager: ScooterManager) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Diagnostic Shell",
+                text = "Presets",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 color = TextMuted
@@ -212,7 +197,7 @@ fun ShellScreen(manager: ScooterManager) {
                 OutlinedTextField(
                     value = commandInput,
                     onValueChange = { commandInput = it },
-                    placeholder = { Text("Command...", color = TextMuted, fontSize = 12.sp) },
+                    placeholder = { Text("Command", color = TextMuted, fontSize = 12.sp) },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -274,7 +259,7 @@ fun ShellScreen(manager: ScooterManager) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Command Output",
+                            text = "Output",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = TextMuted
@@ -285,7 +270,7 @@ fun ShellScreen(manager: ScooterManager) {
                                 onClick = {
                                     val fullText = outputHistory.joinToString("\n")
                                     clipboard.setText(AnnotatedString(fullText))
-                                    Toast.makeText(context, "Output copied to clipboard", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.size(26.dp)
                             ) {

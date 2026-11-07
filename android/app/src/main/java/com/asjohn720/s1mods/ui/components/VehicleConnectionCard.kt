@@ -72,57 +72,20 @@ fun VehicleConnectionCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isConnected) AccentMintSubtle else SurfaceVariantDark),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.ElectricScooter,
-                            contentDescription = null,
-                            tint = if (isConnected) AccentMint else TextMuted,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (isConnected) StatusOk else StatusDanger)
+                    )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "Vehicle Connection",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextMuted
-                        )
-                        Text(
-                            text = if (isConnected) "MoveOS Connected" else "Not Connected",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isConnected) AccentMint else StatusDanger
-                        )
-                    }
+                    Text(
+                        text = if (isConnected) "Connected" else "Not connected",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
                 }
 
-                // Port Status Badge
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (isConnected) AccentMintSubtle else SurfaceVariantDark)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(if (isConnected) AccentMint else StatusDanger)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (isConnected) "Port 50005 Open" else "Port 50005 Offline",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isConnected) AccentMint else TextMuted
-                    )
-                }
+
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -137,7 +100,7 @@ fun VehicleConnectionCard(
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = if (scooterIp.isBlank()) "No vehicle address configured (Tap Auto-Discover or Manual Mode)"
+                    text = if (scooterIp.isBlank()) "No address"
                     else if (scooterScope != null) "$scooterIp%$scooterScope" else scooterIp,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
@@ -155,53 +118,46 @@ fun VehicleConnectionCard(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, AccentMint, RoundedCornerShape(10.dp)),
+                        .border(1.dp, CardBorder, RoundedCornerShape(10.dp)),
                     colors = CardDefaults.cardColors(containerColor = SurfaceVariantDark),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentMint, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = StatusOk, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Vehicle Detected!",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = AccentMint
+                                text = "Scooter found",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
                             )
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Address: ${found.ip}",
+                            text = found.ip,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             color = TextPrimary
                         )
-                        if (found.interfaceName.isNotBlank()) {
-                            Text(
-                                text = "Interface: ${found.interfaceName}",
-                                fontSize = 10.sp,
-                                color = TextMuted
-                            )
-                        }
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
                                 coroutineScope.launch {
                                     try {
                                         manager.connect(found.ip, found.scope)
-                                        Toast.makeText(context, "Connected to ${found.ip}!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Connected", Toast.LENGTH_SHORT).show()
                                     } catch (e: Exception) {
                                         manager.isConnected.value = true
-                                        Toast.makeText(context, "Connected via Port 50005!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Connected", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().height(36.dp),
+                            modifier = Modifier.fillMaxWidth().height(42.dp),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark)
                         ) {
-                            Text("Connect to Vehicle", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                            Text("Connect", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp))
                         }
@@ -214,7 +170,7 @@ fun VehicleConnectionCard(
                 Text(
                     text = scanMessage!!,
                     fontSize = 11.sp,
-                    color = if (scanMessage!!.contains("not detected", ignoreCase = true)) StatusDanger else AccentSky,
+                    color = if (scanMessage!!.contains("not found", ignoreCase = true)) StatusDanger else TextSecondary,
                     lineHeight = 14.sp
                 )
             }
@@ -231,22 +187,20 @@ fun VehicleConnectionCard(
                     onClick = {
                         coroutineScope.launch {
                             isScanning = true
-                            scanMessage = "Scanning hotspot & network interfaces..."
+                            scanMessage = "Scanning…"
                             discoveredScooter = null
                             val found = manager.autoDiscover()
                             isScanning = false
                             if (found != null) {
                                 discoveredScooter = found
                                 scanMessage = null
-                                Toast.makeText(context, "Found vehicle at ${found.ip}!", Toast.LENGTH_SHORT).show()
-                            } else {
-                                scanMessage = "Vehicle not detected on Wi-Fi/Hotspot. Ensure hotspot is ON and scooter screen is awake."
-                                Toast.makeText(context, "Vehicle not detected. Use Manual Mode to enter IP or MAC.", Toast.LENGTH_LONG).show()
-                            }
+                                                            } else {
+                                scanMessage = "Not found. Check hotspot or use Manual."
+                                                            }
                         }
                     },
                     enabled = !isScanning && !isRunning,
-                    modifier = Modifier.weight(1.1f).height(38.dp),
+                    modifier = Modifier.weight(1f).height(42.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary),
                     contentPadding = PaddingValues(horizontal = 8.dp)
@@ -254,11 +208,11 @@ fun VehicleConnectionCard(
                     if (isScanning) {
                         CircularProgressIndicator(modifier = Modifier.size(14.dp), color = AccentSky, strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Scanning...", fontSize = 11.sp)
+                        Text("Scanning", fontSize = 12.sp)
                     } else {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp), tint = AccentSky)
+                        Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Auto-Discover", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        Text("Scan", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
 
@@ -269,14 +223,14 @@ fun VehicleConnectionCard(
                         showManualModeDialog = true
                     },
                     enabled = !isRunning,
-                    modifier = Modifier.weight(1f).height(38.dp),
+                    modifier = Modifier.weight(1f).height(42.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary),
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
-                    Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(14.dp), tint = AccentMint)
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Manual", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                    Text("Manual", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
 
                 // Test Port Button
@@ -288,13 +242,13 @@ fun VehicleConnectionCard(
                             isTestingPort = false
                             Toast.makeText(
                                 context,
-                                if (open) "Port 50005 reachable and responsive!" else "Port 50005 unreachable. Ensure scooter is awake.",
+                                if (open) "Reachable" else "Unreachable. Is the scooter screen on?",
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
                     },
                     enabled = !isTestingPort && !isRunning,
-                    modifier = Modifier.weight(0.9f).height(38.dp),
+                    modifier = Modifier.weight(1f).height(42.dp),
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary),
                     contentPadding = PaddingValues(horizontal = 6.dp)
@@ -302,11 +256,11 @@ fun VehicleConnectionCard(
                     if (isTestingPort) {
                         CircularProgressIndicator(modifier = Modifier.size(14.dp), color = AccentMint, strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Test...", fontSize = 11.sp)
+                        Text("Test", fontSize = 12.sp)
                     } else {
-                        Icon(Icons.Default.Speed, contentDescription = null, modifier = Modifier.size(14.dp), tint = AccentMint)
+                        Icon(Icons.Default.NetworkCheck, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Test", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        Text("Test", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -329,22 +283,7 @@ fun VehicleConnectionCard(
         AlertDialog(
             onDismissRequest = { showManualModeDialog = false },
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(AccentMintSubtle),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Tune, contentDescription = null, tint = AccentMint, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text("Manual Connection", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Enter IPv4, IPv6, or Hotspot MAC", color = TextSecondary, fontSize = 11.sp)
-                    }
-                }
+                Text("Manual connect", color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             },
             text = {
                 Column(
@@ -353,54 +292,19 @@ fun VehicleConnectionCard(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Instructions Card
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, CardBorder, RoundedCornerShape(8.dp)),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceVariantDark),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                text = "How to find address:",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = AccentSky
-                            )
-
-                            // Option 1: Scooter Settings (IPv4)
-                            Row(verticalAlignment = Alignment.Top) {
-                                Text("•", fontSize = 12.sp, color = AccentMint, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "IPv4: Ola Settings → Wi-Fi → Tap connected Wi-Fi network to view IP address.",
-                                    fontSize = 11.sp,
-                                    color = TextPrimary,
-                                    lineHeight = 15.sp
-                                )
-                            }
-
-                            // Option 2: Phone Hotspot (MAC)
-                            Row(verticalAlignment = Alignment.Top) {
-                                Text("•", fontSize = 12.sp, color = AccentMint, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "MAC: Phone Settings → Hotspot → Connected Devices to view scooter MAC ID.",
-                                    fontSize = 11.sp,
-                                    color = TextPrimary,
-                                    lineHeight = 15.sp
-                                )
-                            }
-                        }
-                    }
+                    Text(
+                        text = "IP: Scooter Settings → Wi-Fi\nMAC: Phone → Hotspot → Connected devices",
+                        fontSize = 12.sp,
+                        color = TextMuted,
+                        lineHeight = 18.sp
+                    )
 
                     // Single Unified Input Field (No Scope ID needed)
                     OutlinedTextField(
                         value = tempInput,
                         onValueChange = { tempInput = it },
-                        label = { Text("Scooter IP or MAC Address") },
-                        placeholder = { Text("e.g. 192.168.43.50 or aa:bb:cc:dd:ee:ff") },
+                        label = { Text("IP or MAC address") },
+                        placeholder = { Text("192.168.43.50") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -421,11 +325,10 @@ fun VehicleConnectionCard(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(AccentMintSubtle)
-                                .border(1.dp, AccentMint.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
-                                .padding(8.dp)
+                                                                .padding(8.dp)
                         ) {
                             Column {
-                                Text("✓ Hotspot MAC Recognized (Link-Local IPv6):", fontSize = 10.sp, color = AccentMint, fontWeight = FontWeight.Medium)
+                                Text("MAC → IPv6", fontSize = 11.sp, color = TextSecondary)
                                 Text(derivedIpv6, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = TextPrimary)
                             }
                         }
@@ -437,7 +340,7 @@ fun VehicleConnectionCard(
                                 .background(AccentSkySubtle)
                                 .padding(8.dp)
                         ) {
-                            Text("✓ IPv4 Address Detected", fontSize = 11.sp, color = AccentSky, fontWeight = FontWeight.Medium)
+                            Text("IPv4", fontSize = 11.sp, color = TextSecondary)
                         }
                     } else if (isIpv6) {
                         Box(
@@ -447,7 +350,7 @@ fun VehicleConnectionCard(
                                 .background(AccentSkySubtle)
                                 .padding(8.dp)
                         ) {
-                            Text("✓ IPv6 Address Detected", fontSize = 11.sp, color = AccentSky, fontWeight = FontWeight.Medium)
+                            Text("IPv6", fontSize = 11.sp, color = TextSecondary)
                         }
                     }
                 }
@@ -471,16 +374,16 @@ fun VehicleConnectionCard(
                             isTestingPort = false
                             if (open) {
                                 manager.isConnected.value = true
-                                Toast.makeText(context, "Connected to $finalIp!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Connected", Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, "Saved $finalIp! Port 50005 check pending.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Saved, but not reachable yet", Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Save & Connect", fontWeight = FontWeight.SemiBold)
+                    Text("Connect", fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
