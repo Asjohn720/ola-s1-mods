@@ -7,6 +7,7 @@ import io.grpc.CallOptions
 import io.grpc.ClientCall
 import io.grpc.ManagedChannel
 import io.grpc.MethodDescriptor
+import io.grpc.StatusRuntimeException
 import io.grpc.okhttp.OkHttpChannelBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -18,6 +19,7 @@ import java.util.concurrent.TimeUnit
 /**
  * Direct gRPC client for MoveOS Root Diagnostics Service (TCP Port 50005).
  * Weakly-typed root execution without authentication or pairing.
+ * Supports multi-method fallback for MoveOS 3 (S1 Air), MoveOS 4, and MoveOS 5.
  */
 class S1GrpcClient(
     val host: String,
@@ -26,13 +28,27 @@ class S1GrpcClient(
 ) {
     private var channel: ManagedChannel? = null
 
-    private val methodDescriptor: MethodDescriptor<ByteArray, ByteArray> =
-        MethodDescriptor.newBuilder<ByteArray, ByteArray>()
+    var activeMethodName: String = "ExecuteADBCommand"
+        private set
+
+    var detectedSoftwareVersion: String? = null
+        private set
+
+    private val candidateExecutionMethods = listOf(
+        "ExecuteADBCommand",  // Standard on MoveOS 4 & 5 (S1 Pro Gen 1 & 2)
+        "ExecuteAdbCommand",  // Alternative casing on some MoveOS 3 releases
+        "RunSystemTestCmd",   // Diagnostic exec fallback
+        "RemoteRunTestCmd"    // Remote test fallback
+    )
+
+    private fun buildMethodDescriptor(methodName: String): MethodDescriptor<ByteArray, ByteArray> {
+        return MethodDescriptor.newBuilder<ByteArray, ByteArray>()
             .setType(MethodDescriptor.MethodType.UNARY)
-            .setFullMethodName(MethodDescriptor.generateFullMethodName("wifican.WifiCanRpc", "ExecuteADBCommand"))
+            .setFullMethodName(MethodDescriptor.generateFullMethodName("wifican.WifiCanRpc", methodName))
             .setRequestMarshaller(ByteArrayMarshaller)
             .setResponseMarshaller(ByteArrayMarshaller)
             .build()
+    }
 
     private object ByteArrayMarshaller : MethodDescriptor.Marshaller<ByteArray> {
         override fun stream(value: ByteArray): InputStream = ByteArrayInputStream(value)
@@ -68,7 +84,7 @@ class S1GrpcClient(
     }
 
     /**
-     * Connects and verifies channel responsiveness.
+     * Connects and verifies channel responsiveness with multi-method auto-discovery.
      */
     suspend fun connect(timeoutSeconds: Long = 6L) = withContext(Dispatchers.IO) {
         val target = formattedTarget()
@@ -79,22 +95,81 @@ class S1GrpcClient(
             .build()
         channel = ch
 
-        // Quick connectivity check using simple id -u
-        val (status, out) = executeRaw("id -u", timeoutSeconds)
-        if (status !in 0..1 && out.isEmpty()) {
-            throw IllegalStateException("No answer from scooter port $port at $target")
+        // 1. Probe GetSwVersion to fetch firmware info
+        detectedSoftwareVersion = probeSoftwareVersion(4L)
+
+        // 2. Discover working execution method across candidates
+        var connected = false
+        var lastError: Exception? = null
+
+        for (method in candidateExecutionMethods) {
+            try {
+                val (status, out) = executeViaMethod(method, "id -u", timeoutSeconds)
+                if (status in 0..1 || out.isNotBlank()) {
+                    activeMethodName = method
+                    connected = true
+                    break
+                }
+            } catch (e: StatusRuntimeException) {
+                lastError = e
+                if (e.status.code == io.grpc.Status.Code.UNIMPLEMENTED) {
+                    // Try next candidate method
+                    continue
+                } else {
+                    throw e
+                }
+            } catch (e: Exception) {
+                lastError = e
+                break
+            }
+        }
+
+        if (!connected) {
+            val swMsg = if (detectedSoftwareVersion != null) " (MoveOS reported: $detectedSoftwareVersion)" else ""
+            throw IllegalStateException("No compatible execution RPC method found on $target$swMsg: ${lastError?.message ?: "Unreachable"}")
         }
     }
 
     /**
-     * Executes raw command string on the scooter's daemon.
+     * Probes GetSwVersion from diagnostics daemon.
      */
-    suspend fun executeRaw(command: String, timeoutSeconds: Long = 30L): Pair<Int, String> = withContext(Dispatchers.IO) {
+    suspend fun probeSoftwareVersion(timeoutSeconds: Long = 4L): String? = withContext(Dispatchers.IO) {
+        val ch = channel ?: return@withContext null
+        try {
+            val desc = buildMethodDescriptor("GetSwVersion")
+            val call = ch.newCall(desc, CallOptions.DEFAULT.withDeadlineAfter(timeoutSeconds, TimeUnit.SECONDS))
+            val resultHolder = CompletableResult<ByteArray>()
+            call.start(object : ClientCall.Listener<ByteArray>() {
+                override fun onMessage(message: ByteArray) {
+                    resultHolder.complete(message)
+                }
+                override fun onClose(status: io.grpc.Status, trailers: io.grpc.Metadata) {
+                    if (!status.isOk && !resultHolder.isDone()) {
+                        resultHolder.completeExceptionally(status.asRuntimeException())
+                    }
+                }
+            }, io.grpc.Metadata())
+            call.request(1)
+            call.sendMessage(ByteArray(0))
+            call.halfClose()
+            val resp = resultHolder.await()
+            val (_, msg) = ProtoUtils.decodeResponse(resp)
+            if (msg.isNotBlank()) msg.trim() else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Executes raw command string using a specific gRPC method name.
+     */
+    private suspend fun executeViaMethod(methodName: String, command: String, timeoutSeconds: Long = 30L): Pair<Int, String> = withContext(Dispatchers.IO) {
         val ch = channel ?: throw IllegalStateException("Channel not connected")
         val payload = ProtoUtils.buildCommandPayload(command)
+        val desc = buildMethodDescriptor(methodName)
 
         val call: ClientCall<ByteArray, ByteArray> = ch.newCall(
-            methodDescriptor,
+            desc,
             CallOptions.DEFAULT.withDeadlineAfter(timeoutSeconds, TimeUnit.SECONDS)
         )
 
@@ -116,6 +191,27 @@ class S1GrpcClient(
 
         val responseBytes = resultHolder.await()
         ProtoUtils.decodeResponse(responseBytes)
+    }
+
+    /**
+     * Executes raw command string on the scooter's daemon using the active method.
+     */
+    suspend fun executeRaw(command: String, timeoutSeconds: Long = 30L): Pair<Int, String> = withContext(Dispatchers.IO) {
+        try {
+            executeViaMethod(activeMethodName, command, timeoutSeconds)
+        } catch (e: StatusRuntimeException) {
+            if (e.status.code == io.grpc.Status.Code.UNIMPLEMENTED) {
+                // If current method became unimplemented, try other candidates
+                for (fallback in candidateExecutionMethods.filter { it != activeMethodName }) {
+                    try {
+                        val res = executeViaMethod(fallback, command, timeoutSeconds)
+                        activeMethodName = fallback
+                        return@withContext res
+                    } catch (_: Exception) {}
+                }
+            }
+            throw e
+        }
     }
 
     /**
@@ -257,4 +353,3 @@ echo "bound ${'$'}T"
         }
     }
 }
-

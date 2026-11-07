@@ -100,37 +100,41 @@ fun SetupScreen(manager: ScooterManager) {
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        IconButton(
+                        Button(
                             onClick = {
                                 tempInput = scooterIp
                                 tempScope = scooterScope?.toString() ?: ""
                                 showEditDialog = true
                             },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(SurfaceVariantDark)
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = AccentSky),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.height(34.dp)
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit IP", tint = TextSecondary, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Edit, contentDescription = "Manual IP", modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Manual IP", fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
 
-                        IconButton(
+                        Button(
                             onClick = {
                                 coroutineScope.launch {
                                     val found = manager.autoDiscover()
                                     if (found == null) {
-                                        Toast.makeText(context, "Vehicle not detected. Check Hotspot connected devices or enter MAC.", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Vehicle not detected. Use 'Manual IP' to enter from scooter screen.", Toast.LENGTH_LONG).show()
                                     } else {
                                         Toast.makeText(context, "Found vehicle at ${found.ip}", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(SurfaceVariantDark)
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = AccentMint),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.height(34.dp)
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Scan", tint = TextSecondary, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Refresh, contentDescription = "Scan", modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Scan", fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -369,26 +373,58 @@ fun SetupScreen(manager: ScooterManager) {
 
     // Manual IP / MAC / Scope Edit Dialog
     if (showEditDialog) {
+        var isConnectingManual by remember { mutableStateOf(false) }
+
         val derivedIpv6 = remember(tempInput) {
             NetworkScanner.macToIpv6(tempInput)
         }
 
         AlertDialog(
-            onDismissRequest = { showEditDialog = false },
-            title = { Text("Vehicle Address Configuration", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) },
+            onDismissRequest = { if (!isConnectingManual) showEditDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Wifi, contentDescription = null, tint = AccentMint, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Manual Scooter IP Setup", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Enter scooter IPv6, IPv4 or MAC address from your phone's Hotspot > Connected devices:",
-                        fontSize = 12.sp,
-                        color = TextSecondary
-                    )
+                    // Step-by-Step Instruction Card in English
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = SurfaceVariantDark),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "How to find your IP on the scooter display:",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AccentSky
+                            )
+                            Text(
+                                text = "1. On the scooter screen, open Settings ➔ Wi-Fi.",
+                                fontSize = 11.sp,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "2. Tap on your connected Wi-Fi / Hotspot name.",
+                                fontSize = 11.sp,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "3. Note down the IP Address (e.g. 192.168.43.150) or MAC.",
+                                fontSize = 11.sp,
+                                color = TextPrimary
+                            )
+                        }
+                    }
 
                     OutlinedTextField(
                         value = tempInput,
                         onValueChange = { tempInput = it },
-                        label = { Text("IPv6, IPv4 or MAC Address") },
-                        placeholder = { Text("e.g. aa:bb:cc:dd:ee:ff or IPv6") },
+                        label = { Text("Scooter IP or MAC Address") },
+                        placeholder = { Text("e.g. 192.168.43.150 or aa:bb:cc:dd:ee:ff") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AccentSky,
@@ -396,50 +432,60 @@ fun SetupScreen(manager: ScooterManager) {
                             focusedTextColor = TextPrimary,
                             unfocusedTextColor = TextPrimary
                         ),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
                     )
 
                     if (derivedIpv6 != null) {
                         Text(
-                            text = "Derived IPv6: $derivedIpv6",
+                            text = "✓ MAC detected -> SLAAC IPv6: $derivedIpv6",
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             color = AccentMint
                         )
+                    } else if (tempInput.contains(".")) {
+                        Text(
+                            text = "✓ IPv4 detected -> S1Mods will auto-derive IPv6 to bypass Customer mode firewall",
+                            fontSize = 11.sp,
+                            color = AccentSky
+                        )
                     }
-
-                    OutlinedTextField(
-                        value = tempScope,
-                        onValueChange = { tempScope = it },
-                        label = { Text("Scope ID (optional, e.g. 22)") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentSky,
-                            unfocusedBorderColor = CardBorder,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        val parsedScope = tempScope.toIntOrNull()
-                        val finalIp = derivedIpv6 ?: tempInput.trim()
-                        manager.scooterIp.value = finalIp
-                        manager.scooterScope.value = parsedScope
-                        showEditDialog = false
+                        val input = tempInput.trim()
+                        if (input.isNotBlank()) {
+                            coroutineScope.launch {
+                                isConnectingManual = true
+                                val res = manager.setManualAddress(input)
+                                isConnectingManual = false
+                                showEditDialog = false
+                                if (res.isPortOpen) {
+                                    Toast.makeText(context, "Connected to scooter successfully!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Address saved. Port 50005: check diagnostics log.", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
                     },
+                    enabled = !isConnectingManual && tempInput.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Apply Address", fontWeight = FontWeight.Medium)
+                    if (isConnectingManual) {
+                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = BgDark)
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text("Connect & Verify", fontWeight = FontWeight.Medium)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showEditDialog = false }) {
+                TextButton(
+                    onClick = { showEditDialog = false },
+                    enabled = !isConnectingManual
+                ) {
                     Text("Cancel", color = TextSecondary)
                 }
             },

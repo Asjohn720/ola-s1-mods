@@ -99,7 +99,11 @@ class ScooterManager(private val context: Context) {
             scooterIp.value = ip
             scooterScope.value = scope
             isConnected.value = true
-            log("[+] Successfully established gRPC session with root diagnostics daemon!")
+            val swVer = client.detectedSoftwareVersion
+            if (swVer != null) {
+                log("[+] Detected Vehicle MoveOS: $swVer")
+            }
+            log("[+] Successfully established gRPC session via method ${client.activeMethodName}!")
         } catch (e: Exception) {
             isConnected.value = false
             log("[!] gRPC connection failed: ${e.javaClass.simpleName}: ${e.message}")
@@ -168,6 +172,23 @@ class ScooterManager(private val context: Context) {
         } else {
             log("[!] Could not auto-detect vehicle on port 50005.")
             log("    Tip: Check 'Connected Devices' in Hotspot settings, copy the MAC, and paste in Edit (✏️).")
+        }
+        discovered
+    }
+
+    /**
+     * Resolves and sets vehicle address from manual input (IPv4 from scooter screen, IPv6, or MAC).
+     */
+    suspend fun setManualAddress(rawInput: String): DiscoveredScooter = withContext(Dispatchers.IO) {
+        log("[*] Resolving vehicle address from manual input: $rawInput")
+        val discovered = NetworkScanner.resolveVehicleAddress(rawInput)
+        scooterIp.value = discovered.ip
+        scooterScope.value = discovered.scope
+        isConnected.value = discovered.isPortOpen
+        if (discovered.isPortOpen) {
+            log("[+] Vehicle address resolved and verified: ${discovered.ip} (Source: ${discovered.source})")
+        } else {
+            log("[!] Vehicle address configured: ${discovered.ip}. Note: Port 50005 did not answer probe.")
         }
         discovered
     }
