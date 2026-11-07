@@ -228,7 +228,7 @@ Android non-root processes cannot read `/proc/net/arp` and `ip neigh` returns em
 
 ---
 
-### Trial 10: Comparative Architecture Audit with Axiom (`d:\GITHUB AS\axiom`)
+### Trial 10: Comparative Architecture Audit
 - **Investigation:** Inspected the codebase and documentation of Axiom (`AI_DEVELOPER_GUIDE.md`, `ARCHITECTURE.md`, `CONTROL_AND_PROVISIONING.md`, `AdbProvisioningManager.kt`, and `wifican.proto`) to evaluate its MoveOS 3 implementation.
 - **Axiom Discoveries & Agreements:**
   1. **MoveOS 3 Key File Targets:** On MoveOS 3, the factory keys reside in the writable partition at `/data/misc/adb/adbkeymoveos3_pub_prod` and `/data/misc/adb/adb_keys` (as opposed to `/adb_keys` on rootfs for MoveOS 4/5).
