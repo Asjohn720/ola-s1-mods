@@ -385,7 +385,8 @@ class S1GrpcClient(
                 registeredMethods.add(method)
                 val (status, msg) = ProtoUtils.decodeResponse(resp)
                 val trimmed = msg.trim()
-                if (trimmed == "0" || trimmed.contains("uid=0") || (status in 0..1 && trimmed.isNotEmpty())) {
+                val isRealRootShell = trimmed == "0" || trimmed == "root" || trimmed.contains("uid=0") || trimmed.contains("uid=")
+                if (isRealRootShell) {
                     onLog("  [★] ROOT EXECUTION METHOD CONFIRMED: $method -> Output: '$trimmed'")
                     activeMethodName = method
                     return@withContext method

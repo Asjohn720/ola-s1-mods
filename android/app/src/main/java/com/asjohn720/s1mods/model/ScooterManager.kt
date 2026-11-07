@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -172,11 +173,19 @@ class ScooterManager(private val context: Context) {
                 log("    [+] Port 5555 (ADB) is OPEN (${resAdb.timeTakenMs}ms)!")
                 try {
                     log("    [*] Testing direct ADB authorization handshake...")
-                    val dadb = adbManager.connect(target, 5555, scooterScope.value)
-                    val uidOut = dadb.shell("id -u").allOutput.trim()
-                    log("    [★] DIRECT ADB ACCESS CONFIRMED! (uid: $uidOut)")
+                    withTimeoutOrNull(2500L) {
+                        try {
+                            val dadb = adbManager.connect(target, 5555, scooterScope.value)
+                            val uidOut = dadb.shell("id -u").allOutput.trim()
+                            log("    [★] DIRECT ADB ACCESS CONFIRMED! (uid: $uidOut)")
+                        } catch (e: Exception) {
+                            log("    • Direct ADB status: ${e.message}")
+                        }
+                    } ?: run {
+                        log("    • Direct ADB handshake timed out (authorization needed)")
+                    }
                 } catch (e: Exception) {
-                    log("    • Direct ADB status: ${e.message}")
+                    log("    • Direct ADB probe exception: ${e.message}")
                 }
             } else {
                 log("    • Port 5555 (ADB) is currently closed/firewalled (${resAdb.errorDetails ?: "Closed"}).")
@@ -290,14 +299,27 @@ class ScooterManager(private val context: Context) {
             if (adbPortCheck.isOpen) {
                 log("[*] Port 5555 (ADB) is OPEN. Testing direct ADB authorization...")
                 try {
-                    val dadb = adbManager.connect(activeTarget, 5555, scooterScope.value)
-                    val uidOut = dadb.shell("id -u").allOutput.trim()
-                    if (uidOut.isNotBlank()) {
-                        log("[+] Direct ADB authorized and ready (uid: $uidOut)!")
-                        directAdbReady = true
+                    val isAuth = withTimeoutOrNull(2500L) {
+                        try {
+                            val dadb = adbManager.connect(activeTarget, 5555, scooterScope.value)
+                            val uidOut = dadb.shell("id -u").allOutput.trim()
+                            if (uidOut.isNotBlank()) {
+                                log("[+] Direct ADB authorized and ready (uid: $uidOut)!")
+                                true
+                            } else {
+                                false
+                            }
+                        } catch (e: Exception) {
+                            log("    • Direct ADB needs authorization: ${e.message}")
+                            false
+                        }
+                    } ?: false
+                    directAdbReady = isAuth
+                    if (!isAuth) {
+                        log("    • Direct ADB authorization pending, proceeding to Step 2...")
                     }
                 } catch (e: Exception) {
-                    log("    • Direct ADB needs authorization: ${e.message}")
+                    log("    • Direct ADB check skipped: ${e.message}")
                 }
             }
 
@@ -338,9 +360,17 @@ class ScooterManager(private val context: Context) {
                     log("[*] Note: gRPC bind mount skipped (${e.message}), trying direct ADB connect...")
                 }
                 log("[*] Connecting Kotlin ADB client over TCP Port 5555...")
-                adbManager.connect(activeTarget, 5555, scooterScope.value)
+                try {
+                    adbManager.connect(activeTarget, 5555, scooterScope.value)
+                    val ping = adbManager.shell("id -u")
+                    log("[+] ADB authorized as device (uid: $ping)!")
+                } catch (e: Exception) {
+                    log("[*] Note: If 'Allow USB debugging?' appears on the scooter screen, please tap ALLOW.")
+                    throw e
+                }
+            } else {
+                log("[+] ADB already connected and authorized as device!")
             }
-            log("[+] ADB connected successfully as 'device'!")
 
             // Step 4: Extract and Install Chosen APKs
             currentStep.value = SetupStep.INSTALL_APKS

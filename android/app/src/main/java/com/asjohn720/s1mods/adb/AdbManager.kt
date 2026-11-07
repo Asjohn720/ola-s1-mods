@@ -5,9 +5,8 @@ import dadb.AdbKeyPair
 import dadb.Dadb
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.BufferedReader
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
-import java.io.InputStreamReader
 
 /**
  * Manages ADB keypair generation and Dadb connection to the vehicle over TCP Port 5555.
@@ -98,10 +97,13 @@ class AdbManager(private val context: Context) {
         var lastException: Exception? = null
         for (candidate in candidates.distinct()) {
             try {
-                val dadbInstance = Dadb.create(candidate, port, keyPair)
-                // Test the connection immediately with an active shell ping
-                val ping = dadbInstance.shell("id -u")
-                if (ping.allOutput.isNotEmpty() || ping.exitCode == 0) {
+                // Set explicit 2000ms connect and socket read timeout so it NEVER hangs
+                val dadbInstance = Dadb.create(candidate, port, keyPair, 2000, 2000, false)
+                // Test the connection immediately with an active shell ping bounded to 2 seconds
+                val ping = withTimeoutOrNull(2000L) {
+                    dadbInstance.shell("id -u")
+                }
+                if (ping != null && (ping.allOutput.isNotEmpty() || ping.exitCode == 0)) {
                     activeDadb = dadbInstance
                     return@withContext dadbInstance
                 }
@@ -109,7 +111,7 @@ class AdbManager(private val context: Context) {
                 lastException = e
                 if (e.message?.contains("unauthorized", ignoreCase = true) == true) {
                     // Socket connected successfully, waiting for authorization dialog
-                    val dadbInstance = Dadb.create(candidate, port, keyPair)
+                    val dadbInstance = Dadb.create(candidate, port, keyPair, 2000, 2000, false)
                     activeDadb = dadbInstance
                     return@withContext dadbInstance
                 }
@@ -123,7 +125,7 @@ class AdbManager(private val context: Context) {
             ?: bareHost
 
         try {
-            val dadbInstance = Dadb.create(best, port, keyPair)
+            val dadbInstance = Dadb.create(best, port, keyPair, 3000, 3000, false)
             activeDadb = dadbInstance
             dadbInstance
         } catch (e: Exception) {
@@ -136,23 +138,6 @@ class AdbManager(private val context: Context) {
      */
     private fun findScooterIpv4(port: Int): String? {
         try {
-            // Check ARP / ip neigh table for any device on port 5555
-            val neighProcess = Runtime.getRuntime().exec("ip neigh")
-            BufferedReader(InputStreamReader(neighProcess.inputStream)).useLines { lines ->
-                lines.forEach { line ->
-                    val parts = line.split("\\s+".toRegex())
-                    if (parts.isNotEmpty()) {
-                        val candidateIp = parts[0]
-                        if (candidateIp.contains(".") && !candidateIp.startsWith("127.")) {
-                            val r = com.asjohn720.s1mods.discovery.NetworkScanner.testPortDetailed(candidateIp, port, null, 250)
-                            if (r.isOpen) return candidateIp
-                        }
-                    }
-                }
-            }
-        } catch (_: Exception) {}
-
-        try {
             val ifaces = java.net.NetworkInterface.getNetworkInterfaces()
             while (ifaces.hasMoreElements()) {
                 val iface = ifaces.nextElement()
@@ -163,9 +148,9 @@ class AdbManager(private val context: Context) {
                             val parts = hostAddr.split(".")
                             if (parts.size == 4) {
                                 val prefix = "${parts[0]}.${parts[1]}.${parts[2]}."
-                                val checkList = listOf("${prefix}251", "${prefix}192", "${prefix}2", "${prefix}3", "${prefix}100")
+                                val checkList = listOf("${prefix}251", "${prefix}192", "${prefix}2", "${prefix}3")
                                 for (target in checkList) {
-                                    val r = com.asjohn720.s1mods.discovery.NetworkScanner.testPortDetailed(target, port, null, 250)
+                                    val r = com.asjohn720.s1mods.discovery.NetworkScanner.testPortDetailed(target, port, null, 150)
                                     if (r.isOpen) return target
                                 }
                             }
