@@ -294,8 +294,10 @@ fun ToolboxScreen(manager: ScooterManager) {
                                 FileOutputStream(file).use { out ->
                                     screenshotBitmap!!.compress(Bitmap.CompressFormat.PNG, 100, out)
                                 }
+                                manager.log("[+] Screenshot saved to phone storage: ${file.name}")
                                 Toast.makeText(context, "Saved to ${file.name}", Toast.LENGTH_SHORT).show()
                             } catch (e: Exception) {
+                                manager.log("[!] Failed to save screenshot: ${e.message}")
                                 Toast.makeText(context, "Save failed: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
                         },
