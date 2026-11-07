@@ -5,7 +5,9 @@ import dadb.AdbKeyPair
 import dadb.Dadb
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.BufferedReader
 import java.io.File
+import java.io.InputStreamReader
 
 /**
  * Manages ADB keypair generation and Dadb connection to the vehicle over TCP Port 5555.
@@ -33,8 +35,14 @@ class AdbManager(private val context: Context) {
 
     /**
      * Connects to the vehicle's ADB daemon at [host]:[port].
+     * Supports link-local IPv6 with scope (%scope) and automatic local IPv4 fallback.
      */
-    suspend fun connect(host: String, port: Int = 5555): Dadb = withContext(Dispatchers.IO) {
+    suspend fun connect(
+        host: String,
+        port: Int = 5555,
+        scope: Int? = null,
+        fallbackIpv4: String? = null
+    ): Dadb = withContext(Dispatchers.IO) {
         activeDadb?.close()
         val (keyPair, _) = getOrCreateAdbKeyPair()
 
@@ -48,9 +56,125 @@ class AdbManager(private val context: Context) {
             cleanHost = cleanHost.split("]")[0].trimStart('[')
         }
 
-        val dadbInstance = Dadb.create(cleanHost, port, keyPair)
-        activeDadb = dadbInstance
-        dadbInstance
+        val scopeIndex = if (cleanHost.contains("%")) {
+            cleanHost.split("%")[1].toIntOrNull() ?: scope
+        } else {
+            scope
+        }
+        val bareHost = cleanHost.split("%")[0]
+
+        val candidates = mutableListOf<String>()
+
+        if (bareHost.lowercase().startsWith("fe80")) {
+            // Link-local IPv6 MUST have a scope identifier to avoid EINVAL on Linux/Android
+            if (scopeIndex != null) {
+                candidates.add("$bareHost%$scopeIndex")
+            }
+            // Also try with network interface name (e.g. ap0, wlan0)
+            try {
+                val ifaces = java.net.NetworkInterface.getNetworkInterfaces()
+                while (ifaces.hasMoreElements()) {
+                    val iface = ifaces.nextElement()
+                    if (iface.index == scopeIndex || iface.name.startsWith("ap") || iface.name.startsWith("wlan")) {
+                        candidates.add("$bareHost%${iface.name}")
+                    }
+                }
+            } catch (_: Exception) {}
+
+            if (fallbackIpv4 != null && fallbackIpv4.isNotBlank() && !fallbackIpv4.contains(":")) {
+                candidates.add(fallbackIpv4.trim())
+            }
+
+            // Probe local subnet for scooter's IPv4 lease (e.g. 10.80.106.251)
+            val detectedIpv4 = findScooterIpv4(port)
+            if (detectedIpv4 != null && !candidates.contains(detectedIpv4)) {
+                candidates.add(detectedIpv4)
+            }
+            candidates.add(bareHost)
+        } else {
+            candidates.add(bareHost)
+        }
+
+        var lastException: Exception? = null
+        for (candidate in candidates.distinct()) {
+            try {
+                val dadbInstance = Dadb.create(candidate, port, keyPair)
+                // Test the connection immediately with an active shell ping
+                val ping = dadbInstance.shell("id -u")
+                if (ping.allOutput.isNotEmpty() || ping.exitCode == 0) {
+                    activeDadb = dadbInstance
+                    return@withContext dadbInstance
+                }
+            } catch (e: Exception) {
+                lastException = e
+                if (e.message?.contains("unauthorized", ignoreCase = true) == true) {
+                    // Socket connected successfully, waiting for authorization dialog
+                    val dadbInstance = Dadb.create(candidate, port, keyPair)
+                    activeDadb = dadbInstance
+                    return@withContext dadbInstance
+                }
+            }
+        }
+
+        // If active test did not return immediately, use the best candidate (prefer IPv4 to avoid EINVAL)
+        val best = candidates.firstOrNull { !it.contains(":") }
+            ?: candidates.firstOrNull { it.contains("%") }
+            ?: candidates.firstOrNull()
+            ?: bareHost
+
+        try {
+            val dadbInstance = Dadb.create(best, port, keyPair)
+            activeDadb = dadbInstance
+            dadbInstance
+        } catch (e: Exception) {
+            throw lastException ?: e
+        }
+    }
+
+    /**
+     * Probes local Wi-Fi / Hotspot interface subnet for responsive ADB on port 5555.
+     */
+    private fun findScooterIpv4(port: Int): String? {
+        try {
+            // Check ARP / ip neigh table for any device on port 5555
+            val neighProcess = Runtime.getRuntime().exec("ip neigh")
+            BufferedReader(InputStreamReader(neighProcess.inputStream)).useLines { lines ->
+                lines.forEach { line ->
+                    val parts = line.split("\\s+".toRegex())
+                    if (parts.isNotEmpty()) {
+                        val candidateIp = parts[0]
+                        if (candidateIp.contains(".") && !candidateIp.startsWith("127.")) {
+                            val r = com.asjohn720.s1mods.discovery.NetworkScanner.testPortDetailed(candidateIp, port, null, 250)
+                            if (r.isOpen) return candidateIp
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        try {
+            val ifaces = java.net.NetworkInterface.getNetworkInterfaces()
+            while (ifaces.hasMoreElements()) {
+                val iface = ifaces.nextElement()
+                if (iface.name.startsWith("ap") || iface.name.startsWith("wlan")) {
+                    for (addr in iface.inetAddresses) {
+                        if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
+                            val hostAddr = addr.hostAddress ?: continue
+                            val parts = hostAddr.split(".")
+                            if (parts.size == 4) {
+                                val prefix = "${parts[0]}.${parts[1]}.${parts[2]}."
+                                val checkList = listOf("${prefix}251", "${prefix}192", "${prefix}2", "${prefix}3", "${prefix}100")
+                                for (target in checkList) {
+                                    val r = com.asjohn720.s1mods.discovery.NetworkScanner.testPortDetailed(target, port, null, 250)
+                                    if (r.isOpen) return target
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return null
     }
 
     /**

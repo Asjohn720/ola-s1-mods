@@ -172,7 +172,7 @@ class ScooterManager(private val context: Context) {
                 log("    [+] Port 5555 (ADB) is OPEN (${resAdb.timeTakenMs}ms)!")
                 try {
                     log("    [*] Testing direct ADB authorization handshake...")
-                    val dadb = adbManager.connect(target, 5555)
+                    val dadb = adbManager.connect(target, 5555, scooterScope.value)
                     val uidOut = dadb.shell("id -u").allOutput.trim()
                     log("    [★] DIRECT ADB ACCESS CONFIRMED! (uid: $uidOut)")
                 } catch (e: Exception) {
@@ -290,7 +290,7 @@ class ScooterManager(private val context: Context) {
             if (adbPortCheck.isOpen) {
                 log("[*] Port 5555 (ADB) is OPEN. Testing direct ADB authorization...")
                 try {
-                    val dadb = adbManager.connect(activeTarget, 5555)
+                    val dadb = adbManager.connect(activeTarget, 5555, scooterScope.value)
                     val uidOut = dadb.shell("id -u").allOutput.trim()
                     if (uidOut.isNotBlank()) {
                         log("[+] Direct ADB authorized and ready (uid: $uidOut)!")
@@ -338,7 +338,7 @@ class ScooterManager(private val context: Context) {
                     log("[*] Note: gRPC bind mount skipped (${e.message}), trying direct ADB connect...")
                 }
                 log("[*] Connecting Kotlin ADB client over TCP Port 5555...")
-                adbManager.connect(activeTarget, 5555)
+                adbManager.connect(activeTarget, 5555, scooterScope.value)
             }
             log("[+] ADB connected successfully as 'device'!")
 
@@ -414,7 +414,7 @@ class ScooterManager(private val context: Context) {
         }
         val (_, pubKey) = adbManager.getOrCreateAdbKeyPair()
         grpcClient?.unlockAdb(pubKey)
-        adbManager.connect(scooterIp.value, 5555)
+        adbManager.connect(scooterIp.value, 5555, scooterScope.value)
         val res = adbManager.installApk(apkFile)
         log("[+] Custom APK installed: $res")
         res
@@ -458,7 +458,14 @@ class ScooterManager(private val context: Context) {
      */
     suspend fun wakeScreen() = withContext(Dispatchers.IO) {
         log("[*] Waking vehicle display...")
-        grpcClient?.wakeScreen()
+        try {
+            adbManager.shell("input keyevent 224")
+            adbManager.shell("input keyevent 82")
+            return@withContext
+        } catch (_: Exception) {}
+        try {
+            grpcClient?.wakeScreen()
+        } catch (_: Exception) {}
     }
 
     /**
@@ -474,6 +481,9 @@ class ScooterManager(private val context: Context) {
      * Executes arbitrary root shell command and returns output.
      */
     suspend fun runRootShell(command: String): String = withContext(Dispatchers.IO) {
+        try {
+            return@withContext adbManager.shell(command)
+        } catch (_: Exception) {}
         val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
         val (_, out) = client.shell(command, 30L)
         out
@@ -483,13 +493,13 @@ class ScooterManager(private val context: Context) {
      * Fetches technical specifications and system properties of the vehicle.
      */
     suspend fun fetchScooterInfo(): ScooterInfo = withContext(Dispatchers.IO) {
-        val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
-        val uid = client.shell("id -u").second.trim()
-        val android = client.shell("getprop ro.build.version.release").second.trim()
-        val build = client.shell("getprop ro.build.display.id").second.trim()
-        val model = client.shell("getprop ro.product.model").second.trim()
-        val mode = client.shell("getprop persist.ola.security.scootermode").second.trim()
-        ScooterInfo(uid = uid, androidVersion = android, buildId = build, model = model, scooterMode = mode)
+        val uid = try { adbManager.shell("id -u") } catch (_: Exception) { grpcClient?.shell("id -u")?.second?.trim() ?: "" }
+        val android = try { adbManager.shell("getprop ro.build.version.release") } catch (_: Exception) { grpcClient?.shell("getprop ro.build.version.release")?.second?.trim() ?: "" }
+        val build = try { adbManager.shell("getprop ro.build.display.id") } catch (_: Exception) { grpcClient?.shell("getprop ro.build.display.id")?.second?.trim() ?: "" }
+        val model = try { adbManager.shell("getprop ro.product.model") } catch (_: Exception) { grpcClient?.shell("getprop ro.product.model")?.second?.trim() ?: "" }
+        val mode = try { adbManager.shell("getprop persist.ola.security.scootermode") } catch (_: Exception) { grpcClient?.shell("getprop persist.ola.security.scootermode")?.second?.trim() ?: "" }
+        val effectiveMode = if (mode.isNotBlank()) mode else (grpcClient?.detectedSoftwareVersion ?: "")
+        ScooterInfo(uid = uid, androidVersion = android, buildId = build, model = model, scooterMode = effectiveMode)
     }
 
     fun disconnect() {
