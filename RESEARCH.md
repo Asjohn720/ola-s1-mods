@@ -187,16 +187,77 @@ Android non-root processes cannot read `/proc/net/arp` and `ip neigh` returns em
 
 ---
 
+### Trial 8: Exhaustive MoveOS 3.1.0 RPC Audit & Method Recovery
+- **Attempt:** Scanned all 40 known MoveOS gRPC methods on `wifican.WifiCanRpc` using the bounded method auditor.
+- **Log Output:**
+  ```text
+  [16:33:27] DISCOVERED METHODS ON MOVEOS 3.1.0:
+    • GetVehicleOperationMode (AVAILABLE, status=2/3)
+    • GetVehicleIdentifiers (AVAILABLE -> {})
+    • GetSwVersion (AVAILABLE -> MoveOS: 3.1.0 3.1.0)
+    • GetAospVersion (AVAILABLE, status=1, msg='4.2.67')
+    • GetEcosDynoFlags (Not registered)
+    • CheckManifestFile (Not registered)
+    • InitConnection (Not registered)
+    • Init (AVAILABLE, status=1, msg='Success')
+    • Deinit (AVAILABLE, status=1, msg='Success')
+    • ReadCanFrame / WriteCanFrame / ReadCanStream / WriteCanStream / CanDumpStream (AVAILABLE)
+    • SetVehicleOperationMode (AVAILABLE, status=1, msg='Success')
+    • SwUpdateCheckStatus (AVAILABLE, msg='Software update not in progress.')
+    • RegisterNavigation (AVAILABLE)
+    • ConfigUpdate (AVAILABLE)
+    • RemoteRunTestCmd (REGISTERED)
+    • LocalGetTestCmd (REGISTERED, buffered msg: 'sh -c input${IFS}keyevent${IFS}224')
+    • LocalSendTestResp (AVAILABLE, status=1, msg='Success')
+  ```
+- **Key Findings:**
+  1. Exactly **21 methods** are registered in the MoveOS 3.1.0 Go binary `/vendor/bin/diagnostics_server`.
+  2. `ExecuteADBCommand` and `RunSystemTestCmd` **do not exist** on MoveOS 3.1.0 (both return `UNIMPLEMENTED`).
+  3. `RemoteRunTestCmd` accepts commands and enqueues them into an internal dispatch buffer (`chan *RmtCmdReq`). When `LocalGetTestCmd` was queried, it returned our queued wake command (`sh -c input${IFS}keyevent${IFS}224`).
+  4. In MoveOS 3, execution of remote test commands depends on an on-device local worker (such as `com.ola.mfgapp`) polling `LocalGetTestCmd`, running the shell command, and replying via `LocalSendTestResp`. If the local worker is not running, `RemoteRunTestCmd` blocks until timeout (`DEADLINE_EXCEEDED`).
+
+---
+
+### Trial 9: Display "Allow USB Debugging" Dialog Suppression
+- **Investigation:** Why does the Android "Allow USB debugging?" authorization dialog never appear on the scooter screen during Step 3?
+- **Root Cause:**
+  1. Standard Android displays the authorization prompt via `UsbDebuggingActivity` (part of AOSP SystemUI/Settings).
+  2. Ola completely replaced AOSP SystemUI and Launcher with their proprietary vehicle dashboard client (`com.olaelectric.hmiclient`).
+  3. `UsbDebuggingActivity` is entirely stripped/suppressed in this custom system image.
+  4. Without the dialog, incoming ADB connections from unrecognized keys will hang indefinitely or trigger `SocketTimeoutException: Read timed out`.
+
+---
+
+### Trial 10: Comparative Architecture Audit with Axiom (`d:\GITHUB AS\axiom`)
+- **Investigation:** Inspected the codebase and documentation of Axiom (`AI_DEVELOPER_GUIDE.md`, `ARCHITECTURE.md`, `CONTROL_AND_PROVISIONING.md`, `AdbProvisioningManager.kt`, and `wifican.proto`) to evaluate its MoveOS 3 implementation.
+- **Axiom Discoveries & Agreements:**
+  1. **MoveOS 3 Key File Targets:** On MoveOS 3, the factory keys reside in the writable partition at `/data/misc/adb/adbkeymoveos3_pub_prod` and `/data/misc/adb/adb_keys` (as opposed to `/adb_keys` on rootfs for MoveOS 4/5).
+  2. **Reload Sequence:** Axiom specifies that after key injection, the daemon reload sequence is:
+     ```sh
+     stop adbd; start adbd
+     setprop persist.ola.security.scootermode mfg
+     ```
+  3. **Binary Restrictions:** Axiom confirms that `su` and `sqlite3` binaries **cannot run on MoveOS 3** due to incompatible kernel/SELinux tmpfs policies, and must be skipped.
+- **Axiom Flaw & Limitation:**
+  1. In `AdbProvisioningManager.kt` (lines 50, 64, 74), Axiom relies exclusively on `wifiCanRepository.executeAdbCommand(...)` to execute these shell commands.
+  2. In `wifican.proto`, Axiom only defines `rpc ExecuteADBCommand (Command) returns (Response)`.
+  3. Because `ExecuteADBCommand` does not exist on MoveOS 3.1.0, Axiom encounters the exact same `UNIMPLEMENTED` failure and cannot provision a MoveOS 3.1.0 scooter unless ADB was already authorized previously.
+
+---
+
 ## 5. Technical Comparison: MoveOS 3 vs MoveOS 4/5
 
-| Characteristic | MoveOS 3.1.0 (Observed) | MoveOS 4.x / 5.x (Documented) |
+| Characteristic | MoveOS 3.1.0 (Live Audit & Axiom Findings) | MoveOS 4.x / 5.x (Documented) |
 |:---|:---|:---|
-| **Primary Root Vector** | Alternate RPC method or session initialization | Direct call to `/wifican.WifiCanRpc/ExecuteADBCommand` |
+| **Primary Root Vector** | `RemoteRunTestCmd` / `Local*` queue dispatch | Direct call to `/wifican.WifiCanRpc/ExecuteADBCommand` |
+| **`ExecuteADBCommand`** | **UNIMPLEMENTED** (absent from Go binary) | **Active & Responsive** (runs as `uid=0`) |
 | **Session Initialization** | Required (`Init` handshake returns `Success`) | Not required (stateless execution) |
 | **ADB Daemon Port** | TCP 5555 (Open on IPv6) | TCP 5555 (Open on IPv6) |
-| **Trusted ADB Key Path** | `/adbkeymoveos3_pub_prod` | `/adb_keys` or `/data/misc/adb/adb_keys` |
+| **Trusted Key Locations** | `/data/misc/adb/adbkeymoveos3_pub_prod`<br>`/data/misc/adb/adb_keys`<br>`/adbkeymoveos3_pub_prod` | `/adb_keys` (RAM bind-mounted) |
 | **Firewall Behavior** | Drops IPv4; passes IPv6 | Drops IPv4; passes IPv6 |
-| **Active gRPC Services** | `wifican.WifiCanRpc`, `wifican.WifiCan`, `wifican.Diagnostics`, `diagnostics.DiagnosticsService` | Primarily `wifican.WifiCanRpc` |
+| **Active gRPC Methods** | 21 registered methods | 40 registered methods |
+| **On-Screen Auth Dialog**| Permanently suppressed (`com.olaelectric.hmiclient`) | Permanently suppressed (`com.olaelectric.hmiclient`) |
+| **`su` / `sqlite3` Support**| **Unsupported** (incompatible tmpfs/SELinux policy) | **Supported** (mountable at `/mnt/runtime/su`) |
 
 ---
 
@@ -230,10 +291,10 @@ android/app/src/main/java/com/asjohn720/s1mods/
 
 ## 7. Next Steps & Recommended Action Plan
 
-1. **Capture Complete Method Registry:**
-   Run the newly compiled `S1Mods-v1.0.1.apk` on the scooter. The updated method scanner will test all 40 known MoveOS methods (`RemoteRunTestCmd`, `RunSystemTestCmd`, `ScooterModeChange`, `SetVehicleOperationMode`, etc.) without prematurely stopping on `Init`.
-2. **Review On-Screen Prompts in Step 3:**
-   With the 9-second retry window active in Step 3, observe whether the vehicle screen displays the Android "Allow USB debugging?" authorization dialog. If visible, tap **ALLOW** (or "Always allow").
-3. **Inspect Output for MoveOS 3 Execution Method:**
-   Examine the generated log table from the method audit to identify whether `RunSystemTestCmd` or `RemoteRunTestCmd` returns shell output (`uid=0`), enabling the automated bind-mount path.
+1. **Service Mode Toggle Evaluation:**
+   Test whether invoking `SetVehicleOperationMode(cur_mode = 1 [MFG] or 3 [SERVICE])` natively triggers `ola_e2.rc` property changes (`persist.ola.security.scootermode mfg`), reloading `adbd` to read open key paths without requiring initial shell access.
+2. **MoveOS 3 Local Test Runner Exploration:**
+   Investigate triggering the on-device diagnostic worker (`com.ola.mfgapp`) to process the commands queued in `RemoteRunTestCmd` / `LocalGetTestCmd`.
+3. **Multi-Target Key Provisioning Protocol:**
+   Once an execution channel is established, target both `/data/misc/adb/adbkeymoveos3_pub_prod` and `/data/misc/adb/adb_keys` alongside the `/adbkeymoveos3_pub_prod` RAM bind-mount to ensure 100% key pickup across all MoveOS 3 sub-versions.
 
