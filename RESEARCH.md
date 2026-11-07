@@ -236,3 +236,4 @@ android/app/src/main/java/com/asjohn720/s1mods/
    With the 9-second retry window active in Step 3, observe whether the vehicle screen displays the Android "Allow USB debugging?" authorization dialog. If visible, tap **ALLOW** (or "Always allow").
 3. **Inspect Output for MoveOS 3 Execution Method:**
    Examine the generated log table from the method audit to identify whether `RunSystemTestCmd` or `RemoteRunTestCmd` returns shell output (`uid=0`), enabling the automated bind-mount path.
+
