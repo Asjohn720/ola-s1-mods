@@ -2,6 +2,7 @@ package com.asjohn720.s1mods.ui.components
 
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.asjohn720.s1mods.discovery.DiscoveredScooter
 import com.asjohn720.s1mods.discovery.NetworkScanner
 import com.asjohn720.s1mods.model.ScooterManager
+import com.asjohn720.s1mods.model.VehicleSummary
 import com.asjohn720.s1mods.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -51,6 +53,8 @@ fun VehicleConnectionCard(
     var isTestingPort by remember { mutableStateOf(false) }
     var discoveredScooter by remember { mutableStateOf<DiscoveredScooter?>(null) }
     var scanMessage by remember { mutableStateOf<String?>(null) }
+    val summary by manager.vehicleSummary.collectAsState()
+    var isLoadingSummary by remember { mutableStateOf(false) }
 
     var showManualModeDialog by remember { mutableStateOf(false) }
     var tempInput by remember { mutableStateOf("") }
@@ -111,7 +115,7 @@ fun VehicleConnectionCard(
                 )
             }
 
-            // Discovered Vehicle Card (Shows when Auto-Discovery detects the scooter)
+            // Found scooter: show model + MoveOS + a supported badge (instead of the raw IP).
             if (discoveredScooter != null) {
                 val found = discoveredScooter!!
                 Spacer(modifier = Modifier.height(10.dp))
@@ -126,31 +130,67 @@ fun VehicleConnectionCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = StatusOk, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Scooter found",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
+                            Text("Scooter found", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = found.ip,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        when {
+                            isLoadingSummary -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(14.dp), color = TextSecondary, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Reading model & MoveOS…", fontSize = 12.sp, color = TextSecondary)
+                            }
+                            summary != null -> {
+                                val s = summary!!
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Model", fontSize = 12.sp, color = TextMuted)
+                                    Text(s.model, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("MoveOS", fontSize = 12.sp, color = TextMuted)
+                                    Text(s.moveOs, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TextPrimary)
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                val badgeColor = if (s.supported) StatusOk else StatusWarning
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(badgeColor.copy(alpha = 0.15f))
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        if (s.supported) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                        contentDescription = null, tint = badgeColor, modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        if (s.supported) "Mods supported" else "Mods not supported",
+                                        fontSize = 12.sp, fontWeight = FontWeight.Medium, color = badgeColor
+                                    )
+                                }
+                            }
+                            else -> Text(found.ip, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = TextSecondary)
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
                         Button(
                             onClick = {
                                 coroutineScope.launch {
                                     try {
                                         manager.connect(found.ip, found.scope)
-                                        Toast.makeText(context, "Connected", Toast.LENGTH_SHORT).show()
-                                    } catch (e: Exception) {
+                                    } catch (_: Exception) {
                                         manager.isConnected.value = true
-                                        Toast.makeText(context, "Connected", Toast.LENGTH_SHORT).show()
                                     }
+                                    if (manager.vehicleSummary.value == null && !isLoadingSummary) {
+                                        isLoadingSummary = true
+                                        try { manager.fetchVehicleSummary() } catch (_: Exception) {}
+                                        isLoadingSummary = false
+                                    }
+                                    Toast.makeText(context, "Connected", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier.fillMaxWidth().height(42.dp),
@@ -177,47 +217,61 @@ fun VehicleConnectionCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Action Buttons Row: Auto-Discover (New Engine), Manual Mode (No Scope), Test Link
+            // Primary action: Auto Scan — full width, white so it's the obvious tap.
+            Button(
+                onClick = {
+                    coroutineScope.launch {
+                        isScanning = true
+                        scanMessage = "Scanning…"
+                        discoveredScooter = null
+                        manager.vehicleSummary.value = null
+                        val found = manager.autoDiscover()
+                        isScanning = false
+                        if (found != null) {
+                            discoveredScooter = found
+                            scanMessage = null
+                            // Read model + MoveOS WITHOUT connecting the gate, so the
+                            // Connect button stays visible for the user to tap.
+                            isLoadingSummary = true
+                            try {
+                                manager.connect(found.ip, found.scope, markConnected = false)
+                                manager.fetchVehicleSummary()
+                            } catch (_: Exception) {}
+                            isLoadingSummary = false
+                        } else {
+                            scanMessage = "Not found. Check hotspot or use Manual."
+                        }
+                    }
+                },
+                enabled = !isScanning && !isRunning,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentMint,
+                    contentColor = BgDark,
+                    disabledContainerColor = SurfaceHighlight,
+                    disabledContentColor = TextMuted
+                )
+            ) {
+                if (isScanning) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = BgDark, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Scanning…", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                } else {
+                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Auto Scan", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Secondary actions: Manual + Test, below the primary button.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Auto-Discover Button (Axiom Multicast Ping Engine)
-                Button(
-                    onClick = {
-                        coroutineScope.launch {
-                            isScanning = true
-                            scanMessage = "Scanning…"
-                            discoveredScooter = null
-                            val found = manager.autoDiscover()
-                            isScanning = false
-                            if (found != null) {
-                                discoveredScooter = found
-                                scanMessage = null
-                                                            } else {
-                                scanMessage = "Not found. Check hotspot or use Manual."
-                                                            }
-                        }
-                    },
-                    enabled = !isScanning && !isRunning,
-                    modifier = Modifier.weight(1f).height(42.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary),
-                    contentPadding = PaddingValues(horizontal = 8.dp)
-                ) {
-                    if (isScanning) {
-                        CircularProgressIndicator(modifier = Modifier.size(14.dp), color = AccentSky, strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Scanning", fontSize = 12.sp)
-                    } else {
-                        Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Scan", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
-
-                // Manual Mode Button (Clean Single-Input: IPv4, IPv6, MAC)
-                Button(
+                OutlinedButton(
                     onClick = {
                         tempInput = scooterIp
                         showManualModeDialog = true
@@ -225,16 +279,15 @@ fun VehicleConnectionCard(
                     enabled = !isRunning,
                     modifier = Modifier.weight(1f).height(42.dp),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary),
-                    contentPadding = PaddingValues(horizontal = 8.dp)
+                    border = BorderStroke(1.dp, CardBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary)
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text("Manual", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
 
-                // Test Port Button
-                Button(
+                OutlinedButton(
                     onClick = {
                         coroutineScope.launch {
                             isTestingPort = true
@@ -250,16 +303,16 @@ fun VehicleConnectionCard(
                     enabled = !isTestingPort && !isRunning,
                     modifier = Modifier.weight(1f).height(42.dp),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark, contentColor = TextPrimary),
-                    contentPadding = PaddingValues(horizontal = 6.dp)
+                    border = BorderStroke(1.dp, CardBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary)
                 ) {
                     if (isTestingPort) {
-                        CircularProgressIndicator(modifier = Modifier.size(14.dp), color = AccentMint, strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Test", fontSize = 12.sp)
+                        CircularProgressIndicator(modifier = Modifier.size(14.dp), color = TextPrimary, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Test", fontSize = 13.sp)
                     } else {
                         Icon(Icons.Default.NetworkCheck, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text("Test", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
@@ -293,7 +346,7 @@ fun VehicleConnectionCard(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "IP: Scooter Settings → Wi-Fi\nMAC: Phone → Hotspot → Connected devices",
+                        text = "IP: on the scooter, open Settings → Wi-Fi and tap the connected network to see its IP address.\n\nMAC: on your phone, open Hotspot → Connected devices to see the scooter's MAC.",
                         fontSize = 12.sp,
                         color = TextMuted,
                         lineHeight = 18.sp
@@ -375,6 +428,12 @@ fun VehicleConnectionCard(
                             if (open) {
                                 manager.isConnected.value = true
                                 Toast.makeText(context, "Connected", Toast.LENGTH_SHORT).show()
+                                // Show model + MoveOS for the manual path too.
+                                discoveredScooter = DiscoveredScooter(ip = finalIp, scope = scopeFromPercent)
+                                manager.vehicleSummary.value = null
+                                isLoadingSummary = true
+                                try { manager.fetchVehicleSummary() } catch (_: Exception) {}
+                                isLoadingSummary = false
                             } else {
                                 Toast.makeText(context, "Saved, but not reachable yet", Toast.LENGTH_SHORT).show()
                             }

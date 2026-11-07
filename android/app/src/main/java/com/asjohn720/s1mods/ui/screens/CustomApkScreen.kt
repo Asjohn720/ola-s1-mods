@@ -318,7 +318,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Heavy apps can restart the display.",
+                    text = "Heavy apps use a lot of RAM and can hang the scooter.",
                     fontSize = 11.sp,
                     color = TextSecondary,
                     lineHeight = 14.sp
@@ -935,158 +935,100 @@ fun ModAppRow(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Tier 1: App Icon + Title & Size + Action Buttons
+            // Header: icon + name/size on the left, status chip on the right.
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isInstalled) AccentMintSubtle else SurfaceHighlight),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            icon,
-                            contentDescription = null,
-                            tint = if (isInstalled) AccentMint else TextPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    Column {
-                        Text(
-                            text = app.displayName,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = size,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = TextMuted
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Action Buttons: Open & Uninstall (if installed) OR Install (if not installed)
-                if (isInstalled) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Open Button
-                        Button(
-                            onClick = onOpen,
-                            enabled = !isBusy,
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = AccentMintSubtle,
-                                contentColor = AccentMint
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AccentMint.copy(alpha = 0.5f)),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            if (isOpening) {
-                                CircularProgressIndicator(modifier = Modifier.size(13.dp), color = AccentMint, strokeWidth = 2.dp)
-                            } else {
-                                Icon(Icons.AutoMirrored.Filled.Launch, contentDescription = "Open", modifier = Modifier.size(13.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Open", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-
-                        // Uninstall Button
-                        Button(
-                            onClick = onUninstall,
-                            enabled = !isBusy,
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = StatusDanger.copy(alpha = 0.15f),
-                                contentColor = StatusDanger
-                            ),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            if (isUninstalling) {
-                                CircularProgressIndicator(modifier = Modifier.size(13.dp), color = StatusDanger, strokeWidth = 2.dp)
-                            } else {
-                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(13.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Uninstall", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-                } else {
-                    Button(
-                        onClick = onInstall,
-                        enabled = !isBusy,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AccentMint,
-                            contentColor = BgDark
-                        ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                        modifier = Modifier.height(34.dp)
-                    ) {
-                        if (isInstalling) {
-                            CircularProgressIndicator(modifier = Modifier.size(14.dp), color = BgDark, strokeWidth = 2.dp)
-                        } else {
-                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Install", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            }
-
-            // Tier 2: Status Badges Row (Own line with full width, zero clipping)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isInstalled) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(AccentMintSubtle)
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SurfaceHighlight),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(app.displayName, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                    Text(size, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = TextMuted)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                val chipColor = if (isInstalled) StatusOk else TextMuted
+                Text(
+                    text = if (isInstalled) "Installed" else "Not installed",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = chipColor,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(chipColor.copy(alpha = 0.15f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+
+            // Description on its own line.
+            Text(text = desc, fontSize = 11.sp, color = TextSecondary, lineHeight = 15.sp)
+
+            // Action buttons: full-width row, equal width, no horizontal squeeze.
+            if (isInstalled) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onOpen,
+                        enabled = !isBusy,
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary)
                     ) {
-                        Text("✓ Installed on Scooter", fontSize = 10.sp, color = AccentMint, fontWeight = FontWeight.Bold)
+                        if (isOpening) {
+                            CircularProgressIndicator(modifier = Modifier.size(14.dp), color = TextPrimary, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.AutoMirrored.Filled.Launch, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Open", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
                     }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(SurfaceDark)
-                            .border(1.dp, CardBorder, RoundedCornerShape(4.dp))
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    Button(
+                        onClick = onUninstall,
+                        enabled = !isBusy,
+                        modifier = Modifier.weight(1f).height(40.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = StatusDanger.copy(alpha = 0.15f),
+                            contentColor = StatusDanger
+                        )
                     ) {
-                        Text("Not Installed", fontSize = 10.sp, color = TextMuted, fontWeight = FontWeight.Medium)
+                        if (isUninstalling) {
+                            CircularProgressIndicator(modifier = Modifier.size(14.dp), color = StatusDanger, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Uninstall", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onInstall,
+                    enabled = !isBusy,
+                    modifier = Modifier.fillMaxWidth().height(40.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark)
+                ) {
+                    if (isInstalling) {
+                        CircularProgressIndicator(modifier = Modifier.size(14.dp), color = BgDark, strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Install", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
-
-            // Tier 3: Full Width Description
-            Text(
-                text = desc,
-                fontSize = 11.sp,
-                color = TextSecondary,
-                lineHeight = 15.sp
-            )
         }
     }
 }

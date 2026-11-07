@@ -27,13 +27,15 @@ class S1GrpcClient(
 ) {
     private var channel: ManagedChannel? = null
 
-    private val methodDescriptor: MethodDescriptor<ByteArray, ByteArray> =
+    private fun descriptor(method: String): MethodDescriptor<ByteArray, ByteArray> =
         MethodDescriptor.newBuilder<ByteArray, ByteArray>()
             .setType(MethodDescriptor.MethodType.UNARY)
-            .setFullMethodName(MethodDescriptor.generateFullMethodName("wifican.WifiCanRpc", "ExecuteADBCommand"))
+            .setFullMethodName(MethodDescriptor.generateFullMethodName("wifican.WifiCanRpc", method))
             .setRequestMarshaller(ByteArrayMarshaller)
             .setResponseMarshaller(ByteArrayMarshaller)
             .build()
+
+    private val methodDescriptor = descriptor("ExecuteADBCommand")
 
     private object ByteArrayMarshaller : MethodDescriptor.Marshaller<ByteArray> {
         override fun stream(value: ByteArray): InputStream = ByteArrayInputStream(value)
@@ -44,23 +46,7 @@ class S1GrpcClient(
      * Resolves and normalizes the target host for OkHttpChannelBuilder.forAddress.
      */
     fun resolveTargetHost(): String {
-        var h = host.trim()
-        if (h.startsWith("ipv6:", ignoreCase = true)) {
-            h = h.substring(5).trim()
-        }
-        if (h.startsWith("//")) {
-            h = h.substring(2).trim()
-        }
-        // Strip outer brackets if present (e.g. [fe80::1]:50005 or [fe80::1])
-        if (h.startsWith("[") && h.contains("]")) {
-            h = h.substringAfter("[").substringBefore("]")
-        } else if (h.contains(":") && !h.contains("::")) {
-            // IPv4 with port, e.g. 192.168.43.100:50005
-            h = h.substringBefore(":")
-        }
-
-        // Unescape %25 if present
-        h = h.replace("%25", "%")
+        var h = com.asjohn720.s1mods.discovery.NetworkScanner.normalizeHost(host)
 
         // If fe80 link-local and missing scope, append scope if available
         if (h.startsWith("fe80", ignoreCase = true) && !h.contains("%") && scope != null) {
@@ -73,11 +59,6 @@ class S1GrpcClient(
             h
         }
     }
-
-    /**
-     * Formats target host for display or logging.
-     */
-    fun formattedTarget(): String = "${resolveTargetHost()}:$port"
 
     /**
      * Connects and verifies channel responsiveness using OkHttpChannelBuilder.forAddress.
@@ -101,12 +82,26 @@ class S1GrpcClient(
     /**
      * Executes raw command string on the scooter's daemon.
      */
-    suspend fun executeRaw(command: String, timeoutSeconds: Long = 30L): Pair<Int, String> = withContext(Dispatchers.IO) {
+    suspend fun executeRaw(command: String, timeoutSeconds: Long = 30L): Pair<Int, String> =
+        unary(methodDescriptor, ProtoUtils.buildCommandPayload(command), timeoutSeconds)
+
+    /**
+     * MoveOS software version via the daemon's dedicated GetSwVersion RPC
+     * (request is google.protobuf.Empty = empty bytes; response is the same
+     * status+message shape as ExecuteADBCommand). Returns the message string.
+     */
+    suspend fun getSwVersion(timeoutSeconds: Long = 15L): String =
+        unary(descriptor("GetSwVersion"), ByteArray(0), timeoutSeconds).second
+
+    private suspend fun unary(
+        method: MethodDescriptor<ByteArray, ByteArray>,
+        payload: ByteArray,
+        timeoutSeconds: Long
+    ): Pair<Int, String> = withContext(Dispatchers.IO) {
         val ch = channel ?: throw IllegalStateException("Channel not connected")
-        val payload = ProtoUtils.buildCommandPayload(command)
 
         val call: ClientCall<ByteArray, ByteArray> = ch.newCall(
-            methodDescriptor,
+            method,
             CallOptions.DEFAULT.withDeadlineAfter(timeoutSeconds, TimeUnit.SECONDS)
         )
 
@@ -126,15 +121,17 @@ class S1GrpcClient(
         call.sendMessage(payload)
         call.halfClose()
 
-        val responseBytes = resultHolder.await()
-        ProtoUtils.decodeResponse(responseBytes)
+        ProtoUtils.decodeResponse(resultHolder.await())
     }
 
     /**
-     * Executes arbitrary shell commands by wrapping in sh -c and replacing spaces with ${IFS}.
+     * Executes arbitrary shell commands. The command is base64-encoded and piped
+     * into sh, so spaces inside quotes and filenames survive the daemon's
+     * whitespace split (plain ${IFS} replacement broke `echo "a b"` and spaced paths).
      */
     suspend fun shell(command: String, timeoutSeconds: Long = 30L): Pair<Int, String> {
-        val wrapped = "sh -c " + command.replace(" ", "\${IFS}")
+        val b64 = Base64.encodeToString(command.toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP)
+        val wrapped = "sh -c echo\${IFS}$b64|base64\${IFS}-d|sh"
         return executeRaw(wrapped, timeoutSeconds)
     }
 
@@ -186,13 +183,6 @@ class S1GrpcClient(
         shell("rm -f $tmp", 20L)
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             ?: throw IllegalStateException("Failed to decode screenshot bitmap")
-    }
-
-    /**
-     * Wakes the display screen safely.
-     */
-    suspend fun wakeScreen() {
-        shell("input keyevent 224", 10L)
     }
 
     /**

@@ -32,6 +32,23 @@ object NetworkScanner {
     private var multicastLock: WifiManager.MulticastLock? = null
 
     /**
+     * Strips address decorations shared by the ADB and gRPC clients:
+     * an `ipv6:`/`//` prefix, outer `[ ]` brackets, a trailing `:port` on IPv4,
+     * and a `%25`-escaped scope. Does not touch the scope suffix itself.
+     */
+    fun normalizeHost(host: String): String {
+        var h = host.trim()
+        if (h.startsWith("ipv6:", ignoreCase = true)) h = h.substring(5).trim()
+        if (h.startsWith("//")) h = h.substring(2).trim()
+        if (h.startsWith("[") && h.contains("]")) {
+            h = h.substringAfter("[").substringBefore("]")
+        } else if (h.contains(":") && !h.contains("::")) {
+            h = h.substringBefore(":")
+        }
+        return h.replace("%25", "%")
+    }
+
+    /**
      * Converts a device MAC address (e.g. aa:bb:cc:dd:ee:ff) into its deterministic
      * SLAAC EUI-64 link-local IPv6 address (e.g. fe80::a8bb:ccff:fedd:eeff).
      */

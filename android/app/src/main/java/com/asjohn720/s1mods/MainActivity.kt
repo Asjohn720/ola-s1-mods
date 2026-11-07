@@ -77,6 +77,17 @@ fun MainAppScaffold(manager: ScooterManager) {
     val isConnected by manager.isConnected.collectAsState()
     var bypassConnectionGate by remember { mutableStateOf(false) }
 
+    // Background update check: silent until a newer release exists.
+    var updateRelease by remember { mutableStateOf<com.asjohn720.s1mods.util.AppRelease?>(null) }
+    LaunchedEffect(Unit) {
+        val rel = com.asjohn720.s1mods.util.UpdateChecker.fetchLatest()
+        if (rel != null && com.asjohn720.s1mods.util.UpdateChecker.isNewer(rel.tag)) {
+            if (prefs.getString("update_skip_tag", null) != rel.tag) {
+                updateRelease = rel
+            }
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> }
@@ -239,6 +250,49 @@ fun MainAppScaffold(manager: ScooterManager) {
         }
     }
 
+    updateRelease?.let { rel ->
+        AlertDialog(
+            onDismissRequest = { updateRelease = null },   // tap outside = Close (reappears next launch)
+            title = { Text("Update available", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary) },
+            text = {
+                Text(
+                    "Version ${rel.tag} is available. You have v${BuildConfig.VERSION_NAME}.",
+                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val url = rel.apkUrl ?: rel.pageUrl
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        updateRelease = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Download", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        prefs.edit().putString("update_skip_tag", rel.tag).apply()
+                        updateRelease = null
+                    }) {
+                        Text("Don't ask again", color = TextMuted, fontSize = 12.sp)
+                    }
+                    TextButton(onClick = { updateRelease = null }) {
+                        Text("Close", color = TextPrimary, fontSize = 13.sp)
+                    }
+                }
+            },
+            containerColor = SurfaceDark,
+            shape = RoundedCornerShape(12.dp)
+        )
+    }
+
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
@@ -285,9 +339,10 @@ fun MainAppScaffold(manager: ScooterManager) {
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OnboardingStepItem("1", "Turn on your phone hotspot")
-                    OnboardingStepItem("2", "Join it from the scooter's Wi-Fi")
-                    OnboardingStepItem("3", "Tap Scan, or Manual if not found")
+                    OnboardingStepItem("1", "On your phone, turn on the Wi-Fi hotspot")
+                    OnboardingStepItem("2", "On the scooter, open Wi-Fi and connect to that hotspot")
+                    OnboardingStepItem("3", "Come back here and tap Auto Scan")
+                    OnboardingStepItem("4", "Not found? Use Manual and enter the IP or MAC")
                 }
             },
             confirmButton = {

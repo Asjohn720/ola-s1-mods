@@ -69,6 +69,17 @@ data class RamInfo(
     val freeMb: Int
 )
 
+/**
+ * Minimal vehicle identity shown on the connect/setup card.
+ * supported = MoveOS major version >= 5 (1-4 are not supported; mods may not work).
+ */
+data class VehicleSummary(
+    val model: String,
+    val moveOs: String,
+    val majorVersion: Int?,
+    val supported: Boolean
+)
+
 class ScooterManager(private val context: Context) {
 
     private val adbManager = AdbManager(context)
@@ -83,6 +94,9 @@ class ScooterManager(private val context: Context) {
     val setupSuccess = MutableStateFlow(false)
     val errorMessage = MutableStateFlow<String?>(null)
 
+    // Last read model + MoveOS, shared by the connect card and the Setup "My Scooter" card.
+    val vehicleSummary = MutableStateFlow<VehicleSummary?>(null)
+
     private val _logs = MutableStateFlow<List<String>>(emptyList())
     val logs = _logs.asStateFlow()
 
@@ -96,8 +110,15 @@ class ScooterManager(private val context: Context) {
 
     /**
      * Initializes or updates the active gRPC connection.
+     * markConnected=false builds the client for a background read (model/MoveOS)
+     * without flipping isConnected, so the connect screen's gate does not jump
+     * to the dashboard before the user taps Connect.
      */
-    suspend fun connect(ip: String = scooterIp.value, scope: Int? = scooterScope.value) = withContext(Dispatchers.IO) {
+    suspend fun connect(
+        ip: String = scooterIp.value,
+        scope: Int? = scooterScope.value,
+        markConnected: Boolean = true
+    ) = withContext(Dispatchers.IO) {
         log("[*] Connecting to vehicle at $ip (Scope: ${scope ?: "auto"}) ...")
         grpcClient?.close()
         val client = S1GrpcClient(host = ip, port = 50005, scope = scope)
@@ -105,8 +126,20 @@ class ScooterManager(private val context: Context) {
         grpcClient = client
         scooterIp.value = ip
         scooterScope.value = scope
-        isConnected.value = true
+        if (markConnected) isConnected.value = true
         log("[+] Successfully connected to MoveOS Diagnostics daemon (Port 50005)!")
+    }
+
+    /**
+     * Returns a live gRPC client, building one from the saved address if needed.
+     * Manual Mode / testConnection only flip isConnected; they never build a client,
+     * so gRPC actions must heal the connection here instead of throwing.
+     */
+    private suspend fun ensureGrpc(): S1GrpcClient = withContext(Dispatchers.IO) {
+        grpcClient?.let { return@withContext it }
+        if (scooterIp.value.isBlank()) throw IllegalStateException("Not connected to vehicle")
+        connect()
+        grpcClient ?: throw IllegalStateException("Not connected to vehicle")
     }
 
     /**
@@ -124,19 +157,6 @@ class ScooterManager(private val context: Context) {
             log("    Tip: Check 'Connected Devices' in your Hotspot settings and enter the MAC or IP.")
         }
         discovered
-    }
-
-    /**
-     * Converts a MAC address from Hotspot settings to IPv6 link-local address.
-     */
-    fun setFromMac(mac: String): Boolean {
-        val ipv6 = NetworkScanner.macToIpv6(mac)
-        if (ipv6 != null) {
-            scooterIp.value = ipv6
-            log("[+] Calculated IPv6 from MAC ($mac) -> $ipv6")
-            return true
-        }
-        return false
     }
 
     /**
@@ -379,12 +399,12 @@ class ScooterManager(private val context: Context) {
     suspend fun openApp(packageName: String, friendlyName: String = packageName): Boolean = withContext(Dispatchers.IO) {
         log("[*] Launching $friendlyName ($packageName) on scooter display...")
         try {
-            ensureAdb()
+            val client = ensureGrpc()
             val launchCmd = when (packageName) {
                 "com.asjohn720.ball" -> "am start -n com.asjohn720.ball/.ui.MainActivity"
                 else -> "monkey -p $packageName -c android.intent.category.LAUNCHER 1"
             }
-            val out = adbManager.shell(launchCmd)
+            val out = client.shell(launchCmd).second
             val isError = out.contains("No activities found") || out.contains("monkey aborted")
             if (isError) {
                 log("[!] Could not launch $friendlyName via launcher: $out")
@@ -402,14 +422,12 @@ class ScooterManager(private val context: Context) {
     /**
      * Installs any user-selected APK file from phone storage.
      */
-    suspend fun installCustomApk(apkFile: File): String = installApkFile(apkFile, apkFile.name)
-
     /**
      * Launches specific Android Settings screen on the scooter and returns execution confirmation.
      */
     suspend fun openSettings(action: String): Boolean = withContext(Dispatchers.IO) {
         log("[*] Launching settings: $action...")
-        val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
+        val client = ensureGrpc()
         val (exitCode, _) = client.shell("am start -a $action", 15L)
         val success = exitCode in 0..1
         if (success) {
@@ -425,7 +443,7 @@ class ScooterManager(private val context: Context) {
      */
     suspend fun openDashboardHome(): Boolean = withContext(Dispatchers.IO) {
         log("[*] Bringing Dashboard Home to front...")
-        val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
+        val client = ensureGrpc()
         val (exitCode, _) = client.shell("am start -n com.olaelectric.hmiclient/.MainActivity", 15L)
         client.shell("input keyevent 3", 10L)
         val success = exitCode in 0..1
@@ -435,23 +453,12 @@ class ScooterManager(private val context: Context) {
         success
     }
 
-    suspend fun openOlaHome() = openDashboardHome()
-
-    /**
-     * Wakes the screen safely without modifying persistent power stay-on.
-     */
-    suspend fun wakeScreen() = withContext(Dispatchers.IO) {
-        log("[*] Waking vehicle display...")
-        grpcClient?.wakeScreen()
-        log("[+] Display awake command sent.")
-    }
-
     /**
      * Captures a screenshot from the scooter.
      */
     suspend fun captureScreenshot(): Bitmap = withContext(Dispatchers.IO) {
         log("[*] Capturing vehicle display screenshot...")
-        val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
+        val client = ensureGrpc()
         val bmp = client.takeScreenshot()
         log("[+] Screenshot captured successfully (${bmp.width}x${bmp.height} px).")
         bmp
@@ -462,7 +469,7 @@ class ScooterManager(private val context: Context) {
      */
     suspend fun runRootShell(command: String): String = withContext(Dispatchers.IO) {
         log("[*] Root shell command: $command")
-        val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
+        val client = ensureGrpc()
         val (_, out) = client.shell(command, 30L)
         val preview = if (out.length > 200) out.take(200) + "..." else out
         log("[+] Shell output: $preview")
@@ -528,11 +535,56 @@ class ScooterManager(private val context: Context) {
     }
 
     /**
+     * Reads just model + MoveOS version for the connect/setup card.
+     * MoveOS version comes from the daemon's GetSwVersion RPC (like Axiom);
+     * model from the vehicle-variant XML, falling back to ro.product.model.
+     */
+    suspend fun fetchVehicleSummary(): VehicleSummary = withContext(Dispatchers.IO) {
+        val client = ensureGrpc()
+
+        val swRaw = try { client.getSwVersion() } catch (_: Exception) { "" }
+        val firstLine = swRaw.lines().map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: ""
+        val moveOs = when {
+            firstLine.isBlank() -> "MoveOS —"
+            firstLine.startsWith("MoveOS", ignoreCase = true) -> firstLine
+            else -> "MoveOS $firstLine"
+        }
+        val major = Regex("""(\d+)""").find(firstLine)?.groupValues?.get(1)?.toIntOrNull()
+
+        val model = fetchModelName(client)
+        log("[+] $model, $moveOs")
+        val result = VehicleSummary(model, moveOs, major, major != null && major >= 5)
+        vehicleSummary.value = result
+        result
+    }
+
+    private suspend fun fetchModelName(client: S1GrpcClient): String {
+        val xml = try {
+            client.shell("cat /data/data/com.olaelectric.vehiclerangeservice/shared_prefs/com.olaelectric.dataanalyser.xml", 10L).second
+        } catch (_: Exception) { "" }
+        val variant = Regex("""VEHICLE_VARIANT[^>]*>([^<]+)<""", RegexOption.IGNORE_CASE).find(xml)?.groupValues?.get(1)
+            ?: Regex("""name="[^"]*VARIANT[^"]*">([^<]+)<""", RegexOption.IGNORE_CASE).find(xml)?.groupValues?.get(1)
+        val raw = (variant ?: try { client.shell("getprop ro.product.model", 8L).second } catch (_: Exception) { "" }).trim()
+        val clean = raw.replace("_", " ")
+        val base = when {
+            clean.contains("S1 Pro", ignoreCase = true) -> "S1 Pro"
+            clean.contains("S1 Air", ignoreCase = true) -> "S1 Air"
+            clean.contains("S1 X", ignoreCase = true) -> "S1 X"
+            clean.contains("S1", ignoreCase = true) -> "S1"
+            clean.isNotBlank() -> clean
+            else -> "Ola S1"
+        }
+        // Append generation if the variant string carries it, e.g. "S1 Pro Gen 2".
+        val gen = Regex("""gen\s*(\d+)""", RegexOption.IGNORE_CASE).find(clean)?.groupValues?.get(1)
+        return if (gen != null && !base.contains("Gen", ignoreCase = true)) "$base Gen $gen" else base
+    }
+
+    /**
      * Fetches technical specifications and system properties of the vehicle.
      */
     suspend fun fetchScooterInfo(): ScooterInfo = withContext(Dispatchers.IO) {
         log("[*] Querying vehicle hardware specs and MoveOS version...")
-        val client = grpcClient ?: throw IllegalStateException("Not connected to vehicle")
+        val client = ensureGrpc()
         val uid = client.shell("id -u").second.trim()
         val android = client.shell("getprop ro.build.version.release").second.trim()
         val build = client.shell("getprop ro.build.display.id").second.trim()
@@ -547,5 +599,6 @@ class ScooterManager(private val context: Context) {
         grpcClient?.close()
         adbManager.disconnect()
         isConnected.value = false
+        vehicleSummary.value = null
     }
 }

@@ -38,20 +38,7 @@ class AdbManager(private val context: Context) {
         activeDadb?.close()
         val (keyPair, _) = getOrCreateAdbKeyPair()
 
-        // Clean IPv6 brackets or formatting if needed
-        var cleanHost = host.trim()
-        if (cleanHost.startsWith("ipv6:", ignoreCase = true)) {
-            cleanHost = cleanHost.substring(5).trim()
-        }
-        if (cleanHost.startsWith("//")) {
-            cleanHost = cleanHost.substring(2).trim()
-        }
-        if (cleanHost.startsWith("[") && cleanHost.contains("]")) {
-            cleanHost = cleanHost.substringAfter("[").substringBefore("]")
-        } else if (cleanHost.contains(":") && !cleanHost.contains("::")) {
-            cleanHost = cleanHost.substringBefore(":")
-        }
-        cleanHost = cleanHost.replace("%25", "%")
+        val cleanHost = com.asjohn720.s1mods.discovery.NetworkScanner.normalizeHost(host)
 
         val dadbInstance = Dadb.create(cleanHost, port, keyPair)
         activeDadb = dadbInstance

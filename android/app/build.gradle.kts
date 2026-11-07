@@ -15,10 +15,14 @@ android {
         applicationId = "com.asjohn720.s1mods"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.2-beta"
 
         vectorDrawables.useSupportLibrary = true
+
+        // GitHub repo that holds the public Releases used for update checks.
+        buildConfigField("String", "GIT_OWNER", "\"Asjohn720\"")
+        buildConfigField("String", "GIT_REPO", "\"ola-s1-mods\"")
     }
 
     buildTypes {
