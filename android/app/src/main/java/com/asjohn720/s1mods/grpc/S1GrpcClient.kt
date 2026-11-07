@@ -36,9 +36,7 @@ class S1GrpcClient(
 
     private val candidateExecutionMethods = listOf(
         "ExecuteADBCommand",  // Standard on MoveOS 4 & 5 (S1 Pro Gen 1 & 2)
-        "ExecuteAdbCommand",  // Alternative casing on some MoveOS 3 releases
-        "RunSystemTestCmd",   // Diagnostic exec fallback
-        "RemoteRunTestCmd"    // Remote test fallback
+        "ExecuteAdbCommand"   // Alternative casing on some MoveOS 3 releases
     )
 
     private fun buildMethodDescriptor(methodName: String): MethodDescriptor<ByteArray, ByteArray> {
@@ -95,13 +93,10 @@ class S1GrpcClient(
             .build()
         channel = ch
 
-        // 1. Probe GetSwVersion to fetch firmware info
-        detectedSoftwareVersion = probeSoftwareVersion(4L)
-
-        // 2. Discover working execution method across candidates
         var connected = false
         var lastError: Exception? = null
 
+        // 1. Try candidate execution methods directly
         for (method in candidateExecutionMethods) {
             try {
                 val (status, out) = executeViaMethod(method, "id -u", timeoutSeconds)
@@ -113,7 +108,6 @@ class S1GrpcClient(
             } catch (e: StatusRuntimeException) {
                 lastError = e
                 if (e.status.code == io.grpc.Status.Code.UNIMPLEMENTED) {
-                    // Try next candidate method
                     continue
                 } else {
                     throw e
@@ -124,9 +118,55 @@ class S1GrpcClient(
             }
         }
 
+        // 2. If UNIMPLEMENTED, try InitConnection handshake (required on some MoveOS 3 builds)
+        if (!connected && lastError is StatusRuntimeException && (lastError as StatusRuntimeException).status.code == io.grpc.Status.Code.UNIMPLEMENTED) {
+            val initialized = initConnection("s1mods", 3L)
+            if (initialized) {
+                for (method in candidateExecutionMethods) {
+                    try {
+                        val (status, out) = executeViaMethod(method, "id -u", timeoutSeconds)
+                        if (status in 0..1 || out.isNotBlank()) {
+                            activeMethodName = method
+                            connected = true
+                            break
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+
         if (!connected) {
-            val swMsg = if (detectedSoftwareVersion != null) " (MoveOS reported: $detectedSoftwareVersion)" else ""
-            throw IllegalStateException("No compatible execution RPC method found on $target$swMsg: ${lastError?.message ?: "Unreachable"}")
+            throw IllegalStateException("No compatible execution RPC method found on $target: ${lastError?.message ?: "Unreachable"}")
+        }
+    }
+
+    /**
+     * Sends an InitConnection handshake to wake/register the session (required on some MoveOS 3 builds).
+     */
+    private suspend fun initConnection(clientName: String = "s1mods", timeoutSeconds: Long = 3L): Boolean = withContext(Dispatchers.IO) {
+        val ch = channel ?: return@withContext false
+        try {
+            val desc = buildMethodDescriptor("InitConnection")
+            val call = ch.newCall(desc, CallOptions.DEFAULT.withDeadlineAfter(timeoutSeconds, TimeUnit.SECONDS))
+            val resultHolder = CompletableResult<ByteArray>()
+            call.start(object : ClientCall.Listener<ByteArray>() {
+                override fun onMessage(message: ByteArray) {
+                    resultHolder.complete(message)
+                }
+                override fun onClose(status: io.grpc.Status, trailers: io.grpc.Metadata) {
+                    if (!status.isOk && !resultHolder.isDone()) {
+                        resultHolder.completeExceptionally(status.asRuntimeException())
+                    }
+                }
+            }, io.grpc.Metadata())
+            call.request(1)
+            call.sendMessage(ProtoUtils.buildCommandPayload(clientName))
+            call.halfClose()
+            val resp = resultHolder.await()
+            val (status, _) = ProtoUtils.decodeResponse(resp)
+            status in 0..1
+        } catch (_: Exception) {
+            false
         }
     }
 

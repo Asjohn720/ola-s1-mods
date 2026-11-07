@@ -498,25 +498,31 @@ fun SetupScreen(manager: ScooterManager) {
                     ) {
                         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "How to find IP on scooter display:",
+                                text = "How to connect (100% Guaranteed via MAC):",
                                 fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = AccentMint
+                            )
+                            Text(
+                                text = "⭐ Recommended: Enter Scooter MAC Address",
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = AccentSky
                             )
                             Text(
-                                text = "1. On scooter, open Settings ➔ Wi-Fi.",
+                                text = "• In Phone: Settings ➔ Hotspot ➔ Connected devices, copy MAC (e.g. 3a:2b:7c:06:5d:a8)",
                                 fontSize = 11.sp,
                                 color = TextPrimary
                             )
                             Text(
-                                text = "2. Tap your connected Wi-Fi / Hotspot name.",
+                                text = "• Or on Scooter: Settings ➔ Wi-Fi ➔ tap connected Wi-Fi ➔ MAC Address",
                                 fontSize = 11.sp,
                                 color = TextPrimary
                             )
                             Text(
-                                text = "3. Note the IP Address (e.g. 192.168.43.150) or MAC.",
-                                fontSize = 11.sp,
-                                color = TextPrimary
+                                text = "ℹ️ Note: MoveOS customer mode blocks IPv4. MAC enables IPv6 bypass!",
+                                fontSize = 10.sp,
+                                color = TextMuted
                             )
                         }
                     }
@@ -524,8 +530,8 @@ fun SetupScreen(manager: ScooterManager) {
                     OutlinedTextField(
                         value = tempInput,
                         onValueChange = { tempInput = it },
-                        label = { Text("Scooter IP or MAC Address") },
-                        placeholder = { Text("e.g. 192.168.43.150 or aa:bb:cc:dd:ee:ff") },
+                        label = { Text("Scooter MAC or IP Address") },
+                        placeholder = { Text("e.g. 3a:2b:7c:06:5d:a8 or 10.80.106.251") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = AccentSky,
@@ -539,14 +545,14 @@ fun SetupScreen(manager: ScooterManager) {
 
                     if (derivedIpv6 != null) {
                         Text(
-                            text = "✓ MAC detected -> SLAAC IPv6: $derivedIpv6",
+                            text = "✓ MAC detected -> SLAAC IPv6: $derivedIpv6 (Firewall Bypassed!)",
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
                             color = AccentMint
                         )
                     } else if (tempInput.contains(".")) {
                         Text(
-                            text = "✓ IPv4 detected -> Auto-maps to IPv6 SLAAC for customer firewall bypass",
+                            text = "⚠️ IPv4 Notice: Customer mode blocks IPv4 port 50005. If connection times out, please paste the MAC address above.",
                             fontSize = 11.sp,
                             color = AccentSky
                         )

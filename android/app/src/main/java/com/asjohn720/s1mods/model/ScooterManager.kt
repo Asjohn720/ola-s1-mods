@@ -186,9 +186,13 @@ class ScooterManager(private val context: Context) {
         scooterScope.value = discovered.scope
         isConnected.value = discovered.isPortOpen
         if (discovered.isPortOpen) {
-            log("[+] Vehicle address resolved and verified: ${discovered.ip} (Source: ${discovered.source})")
+            log("[+] Vehicle address verified: ${discovered.ip} (Port 50005 OPEN via ${discovered.source})")
         } else {
-            log("[!] Vehicle address configured: ${discovered.ip}. Note: Port 50005 did not answer probe.")
+            log("[!] Target set to ${discovered.ip}, but Port 50005 is not responding yet.")
+            if (!discovered.ip.contains(":")) {
+                log("    [!] Tip: MoveOS drops IPv4 in Customer mode. Enter scooter MAC address to connect via IPv6!")
+                log("    [!] Ensure scooter display is AWAKE (side stand UP, tap screen).")
+            }
         }
         discovered
     }
