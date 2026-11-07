@@ -33,7 +33,7 @@ enum class ModApp(
     BALLS(
         id = "balls",
         displayName = "Balls Navigation",
-        assetFileName = "balls-1.0.0-lite-release.apk",
+        assetFileName = "balls-1.1.0-lite-release.apk",
         packageName = "com.asjohn720.ball",
         isMandatory = true,
         description = "Floating Back, Home & Settings touch buttons (Required)"
@@ -53,14 +53,6 @@ enum class ModApp(
         packageName = "com.asjohn720.musicmod",
         isMandatory = false,
         description = "Ad-free streaming and offline music playback"
-    ),
-    BROWSER(
-        id = "browser",
-        displayName = "Via Browser",
-        assetFileName = "via-release.apk",
-        packageName = "mark.via.gp",
-        isMandatory = false,
-        description = "Ultra-lightweight web browser (<5 MB RAM usage)"
     )
 }
 
@@ -210,12 +202,15 @@ class ScooterManager(private val context: Context) {
             // Step 4: Extract and Install Chosen APKs
             currentStep.value = SetupStep.INSTALL_APKS
             log("\n[4/6] Installing selected Mod APKs...")
+
             for (app in selectedApps) {
                 val isInstalled = adbManager.isPackageInstalled(app.packageName)
                 if (isInstalled) {
-                    log("[*] ${app.displayName} is already installed on vehicle. Updating/reinstalling keeping data...")
+                    log("[*] ${app.displayName} already installed on vehicle. Clean uninstalling (${app.packageName})...")
+                    val uninstRes = adbManager.uninstallPackage(app.packageName)
+                    log("    [+] Clean uninstall: $uninstRes")
                 } else {
-                    log("[*] Installing ${app.displayName}...")
+                    log("[*] ${app.displayName} not found on vehicle. Direct fresh install...")
                 }
                 installAssetApk(app.assetFileName, app.displayName)
             }
