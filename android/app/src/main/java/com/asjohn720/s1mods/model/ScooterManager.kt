@@ -257,6 +257,7 @@ class ScooterManager(private val context: Context) {
             log("     CONGRATULATIONS! ALL MODS INSTALLED!         ")
             log("==================================================")
             log("Installation complete. Your selected apps are ready on screen.")
+            log("[*] Note: Use mod apps with the scooter stand UP. Lowering the side stand triggers auto-lock.")
             setupSuccess.value = true
 
         } catch (e: Exception) {

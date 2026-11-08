@@ -63,6 +63,13 @@ fun SetupScreen(manager: ScooterManager) {
 
     var activeSubTab by remember { mutableStateOf(SetupSubTab.SETUP) }
     var showSetupPackageDialog by remember { mutableStateOf(false) }
+    var showCompletionDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(success) {
+        if (success) {
+            showCompletionDialog = true
+        }
+    }
 
     // App selection state for setup: Balls, Android Auto, Music Mod checked by default
     var selectedApps by remember { mutableStateOf(ModApp.values().toSet()) }
@@ -279,7 +286,11 @@ fun SetupScreen(manager: ScooterManager) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.CheckCircle, contentDescription = null, tint = StatusOk, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Text("Setup complete", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                Column {
+                                    Text("Setup complete", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text("Notice: Use mod apps with the scooter stand UP. Lowering the side stand triggers auto-lock.", fontSize = 11.sp, color = TextSecondary)
+                                }
                             }
                             Spacer(modifier = Modifier.height(10.dp))
                             Button(
@@ -349,7 +360,7 @@ fun SetupScreen(manager: ScooterManager) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Start Modding",
+                            text = "Install Mod",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -701,6 +712,55 @@ fun SetupScreen(manager: ScooterManager) {
             },
             containerColor = SurfaceDark,
             shape = RoundedCornerShape(12.dp)
+        )
+    }
+
+    // 3. Mod Completion Popup Dialog
+    if (showCompletionDialog) {
+        AlertDialog(
+            onDismissRequest = { showCompletionDialog = false },
+            icon = {
+                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = StatusOk, modifier = Modifier.size(28.dp))
+            },
+            title = {
+                Text("Setup Completed Successfully", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextPrimary)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "All selected mods have been installed on your vehicle.",
+                        fontSize = 13.sp,
+                        color = TextSecondary
+                    )
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = SurfaceVariantDark),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, StatusWarning.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = StatusWarning, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Important: Use mod apps with the scooter stand UP. Lowering the side stand triggers vehicle auto-lock.",
+                                fontSize = 12.sp,
+                                color = StatusWarning,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showCompletionDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentMint, contentColor = BgDark),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Got It", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                }
+            },
+            containerColor = SurfaceDark,
+            shape = RoundedCornerShape(14.dp)
         )
     }
 }
