@@ -15,8 +15,8 @@ android {
         applicationId = "com.asjohn720.s1mods"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.2-beta"
+        versionCode = 5
+        versionName = "1.2"
 
         vectorDrawables.useSupportLibrary = true
 

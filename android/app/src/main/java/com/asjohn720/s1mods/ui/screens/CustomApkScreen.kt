@@ -601,6 +601,113 @@ fun CustomApkScreen(manager: ScooterManager) {
                         }
                     }
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // OpenPlay (CarPlay)
+                val carPlayApp = OnlineAppCatalog.carPlayApp
+                val carPlayFile = remember(carPlayApp.fileName) {
+                    File(downloadDir, carPlayApp.fileName)
+                }
+                var carPlayExists by remember(carPlayApp.fileName) {
+                    mutableStateOf(carPlayFile.exists() && carPlayFile.length() > 500_000)
+                }
+                val isCarPlayInstalled = installedPackages.contains(carPlayApp.packageName)
+                val isCarPlayDownloading = downloadingAppId == carPlayApp.id
+
+                OnlineAppRow(
+                    app = carPlayApp,
+                    icon = Icons.Default.DirectionsCar,
+                    isInstalled = isCarPlayInstalled,
+                    isDownloaded = carPlayExists,
+                    isDownloading = isCarPlayDownloading,
+                    downloadProgress = downloadProgress,
+                    downloadStatusText = downloadStatusText,
+                    actionInProgress = activeAppAction,
+                    onOpen = {
+                        coroutineScope.launch {
+                            activeAppAction = "${carPlayApp.id}:opening"
+                            try {
+                                val ok = manager.openApp(carPlayApp.packageName, carPlayApp.displayName)
+                                if (ok) {
+                                    Toast.makeText(context, "${carPlayApp.displayName} opened", Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            } finally {
+                                activeAppAction = null
+                            }
+                        }
+                    },
+                    onDownload = {
+                        coroutineScope.launch {
+                            downloadingAppId = carPlayApp.id
+                            downloadProgress = 0f
+                            downloadStatusText = "Connecting..."
+                            manager.log("[*] Downloading ${carPlayApp.displayName} (${carPlayApp.sizeText})...")
+                            try {
+                                ApkDownloader.download(carPlayApp.downloadUrl, carPlayFile) { fraction, readBytes, totalBytes ->
+                                    downloadProgress = if (fraction >= 0f) fraction else 0f
+                                    val readMb = String.format("%.1f", readBytes / (1024.0 * 1024.0))
+                                    val totalMb = if (totalBytes > 0) String.format("%.1f MB", totalBytes / (1024.0 * 1024.0)) else "unknown"
+                                    downloadStatusText = "$readMb / $totalMb"
+                                }
+                                carPlayExists = true
+                                manager.log("[+] Successfully downloaded ${carPlayApp.displayName}")
+                                Toast.makeText(context, "${carPlayApp.displayName} downloaded!", Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                manager.log("[!] Download failed for ${carPlayApp.displayName}: ${e.message}")
+                                Toast.makeText(context, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
+                            } finally {
+                                downloadingAppId = null
+                            }
+                        }
+                    },
+                    onInstall = {
+                        pendingConfirmation = AppConfirmation(
+                            title = "Install ${carPlayApp.displayName}?",
+                            message = "Are you sure you want to install ${carPlayApp.displayName} on your scooter?",
+                            confirmButtonText = "Install",
+                            isDestructive = false
+                        ) {
+                            coroutineScope.launch {
+                                activeAppAction = "${carPlayApp.id}:installing"
+                                try {
+                                    manager.installApkFile(carPlayFile, carPlayApp.displayName)
+                                    Toast.makeText(context, "${carPlayApp.displayName} installed on scooter!", Toast.LENGTH_SHORT).show()
+                                    refreshAllData()
+                                } catch (e: Exception) {
+                                    manager.log("[!] Install failed: ${e.message}")
+                                    Toast.makeText(context, "Install failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                } finally {
+                                    activeAppAction = null
+                                }
+                            }
+                        }
+                    },
+                    onUninstall = {
+                        pendingConfirmation = AppConfirmation(
+                            title = "Uninstall ${carPlayApp.displayName}?",
+                            message = "Are you sure you want to uninstall ${carPlayApp.displayName} from your scooter?",
+                            confirmButtonText = "Uninstall",
+                            isDestructive = true
+                        ) {
+                            coroutineScope.launch {
+                                activeAppAction = "${carPlayApp.id}:uninstalling"
+                                try {
+                                    manager.uninstallPackage(carPlayApp.packageName)
+                                    Toast.makeText(context, "${carPlayApp.displayName} uninstalled", Toast.LENGTH_SHORT).show()
+                                    refreshAllData()
+                                } catch (e: Exception) {
+                                    manager.log("[!] Uninstall failed: ${e.message}")
+                                    Toast.makeText(context, "Uninstall failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                } finally {
+                                    activeAppAction = null
+                                }
+                            }
+                        }
+                    }
+                )
             }
         }
 
@@ -622,7 +729,7 @@ fun CustomApkScreen(manager: ScooterManager) {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                OnlineAppCatalog.apps.forEachIndexed { index, onlineApp ->
+                OnlineAppCatalog.apps.filter { it.id != OnlineAppCatalog.carPlayApp.id }.forEachIndexed { index, onlineApp ->
                     if (index > 0) Spacer(modifier = Modifier.height(10.dp))
 
                     val localFile = remember(onlineApp.fileName) {

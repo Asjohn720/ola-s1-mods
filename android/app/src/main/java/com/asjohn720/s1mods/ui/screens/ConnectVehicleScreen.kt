@@ -179,7 +179,7 @@ fun ConnectVehicleScreen(
                     ) {
                         SocialButton("GitHub", "https://github.com/Asjohn720", context, modifier = Modifier.weight(1f))
                         SocialButton("X", "https://x.com/asjohn720", context, modifier = Modifier.weight(1f))
-                        SocialButton("Instagram", "https://www.instagram.com/asjohn720", context, modifier = Modifier.weight(1f))
+                        SocialButton("Instagram", "https://www.instagram.com/asjohn720.exe", context, modifier = Modifier.weight(1f))
                     }
                     Text("MIT License. Not affiliated with Ola Electric.", fontSize = 11.sp, color = TextMuted, lineHeight = 15.sp)
                 }

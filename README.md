@@ -17,7 +17,7 @@ Zero soldering, zero flash partition writes, and 100% reversible with a single v
 
 1. Turn on **Personal Hotspot** on your Android phone.
 2. On your scooter display, go to **Settings > Wi-Fi** and connect to your phone's hotspot.
-3. Install and open [`S1Mods-v1.0.0.apk`](S1Mods-v1.0.0.apk) on your phone.
+3. Install and open [`S1Mods-v1.2.apk`](S1Mods-v1.2.apk) on your phone.
 4. Tap **Scan** *(allow Location permission when prompted — Android requires this to scan local devices)*. If auto-scan is blocked by your phone's security, copy the scooter's **MAC or IP** from **Hotspot > Connected Devices** and paste it via the **Edit (✏️)** button.
 5. Ensure the scooter's **side stand is UP** and screen is awake.
 6. Tap **1-CLICK AUTOMATED SETUP** — within seconds, navigation controls and music mod are installed!
@@ -50,7 +50,7 @@ Watch the modded infotainment interface and floating touch navigation running li
 
 ## ✨ Key Features
 
-* 📲 **All-in-One Android App (`S1Mods`):** Complete standalone Android application to auto-detect scooter over phone hotspot, unlock ADB, install bundled APKs, capture screenshots, open settings, and run root shell directly from your phone — **zero PC required!** Located in [`android/`](android/) and pre-compiled as [`S1Mods-v1.0.0.apk`](S1Mods-v1.0.0.apk).
+* 📲 **All-in-One Android App (`S1Mods`):** Complete standalone Android application to auto-detect scooter over phone hotspot, unlock ADB, install bundled APKs, capture screenshots, open settings, and run root shell directly from your phone — **zero PC required!** Located in [`android/`](android/) and pre-compiled as [`S1Mods-v1.2.apk`](S1Mods-v1.2.apk).
 * 🔍 **Zero-Config Auto-Discovery & Hotspot Helper:** Automatically scans IPv6 link-local multicast and local hotspot subnets. Includes an instant MAC-to-IPv6 converter using SLAAC EUI-64 standards.
 * 🛡️ **Zero Power-Manager Tampering (Safe Auto-Lock):** Does **NOT** alter the system power manager or force persistent stay-on. Your scooter's built-in auto-lock and anti-theft security remain 100% untouched.
 * 🔓 **Safe & Reversible In-Memory ADB Unlock:** Authorizes ADB over TCP port 5555 using a temporary RAM bind-mount (`mount --bind`). No system, vendor, or boot partitions are ever modified.
@@ -146,9 +146,6 @@ python ola.py interactive --ipv6 fe80::1234:5678:9abc:def0%22
 
 ```
 ola-s1-mods/
-├── apks/                  # Pre-bundled mod APK packages
-│   ├── balls-1.0.0-lite-release.apk
-│   └── musicmod-release.apk
 ├── android/               # S1Mods Standalone Android Application
 ├── .gitignore             # Standard Git ignore rules
 ├── LICENSE                # MIT License with research & safety disclaimer
@@ -166,7 +163,7 @@ ola-s1-mods/
 * **Anand ([@Asjohn720](https://github.com/Asjohn720))** — Automated discovery engine, in-memory ADB unlock workflow, Android app architecture, and project packaging.
   - 🌐 **GitHub:** [@Asjohn720](https://github.com/Asjohn720)
   - 🐦 **X (Twitter):** [@asjohn720](https://x.com/asjohn720)
-  - 📸 **Instagram:** [@asjohn720](https://www.instagram.com/asjohn720)
+  - 📸 **Instagram:** [@asjohn720.exe](https://www.instagram.com/asjohn720.exe)
 
 ### 🤝 Acknowledgments & Credits
 
