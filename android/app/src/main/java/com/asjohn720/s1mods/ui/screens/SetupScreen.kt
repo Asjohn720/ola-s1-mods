@@ -682,13 +682,25 @@ fun SetupScreen(manager: ScooterManager) {
 
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    // Pre-flight Reminders Card
-                    Text(
-                        text = "Keep the side stand up and screen on. Use at your own risk.",
-                        fontSize = 12.sp,
-                        color = TextMuted,
-                        lineHeight = 16.sp
-                    )
+                    // Warranty / liability notice shown at install time.
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, StatusWarning.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
+                        colors = CardDefaults.cardColors(containerColor = StatusWarning.copy(alpha = 0.08f)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp)) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = StatusWarning, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Unofficial, not affiliated with Ola Electric. Modifying your scooter may void its warranty and is entirely at your own risk. The developer is not liable for any damage. Keep the side stand up and the screen on.",
+                                fontSize = 11.sp,
+                                color = TextSecondary,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {

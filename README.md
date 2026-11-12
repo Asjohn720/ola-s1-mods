@@ -50,7 +50,7 @@ Watch the modded infotainment interface and floating touch navigation running li
 
 ## ✨ Key Features
 
-* 📲 **All-in-One Android App (`S1Mods`):** Complete standalone Android application to auto-detect scooter over phone hotspot, unlock ADB, install bundled APKs, capture screenshots, open settings, and run root shell directly from your phone — **zero PC required!** Located in [`android/`](android/) and pre-compiled as [`S1Mods-v1.2.apk`](S1Mods-v1.2.apk).
+* 📲 **All-in-One Android App (`S1Mods`):** Complete standalone Android application to auto-detect your scooter over a phone hotspot, unlock ADB, install bundled mod APKs, capture screenshots, and open settings directly from your phone — **zero PC required!** Located in [`android/`](android/) and pre-compiled as [`S1Mods-v1.2.apk`](S1Mods-v1.2.apk).
 * 🔍 **Zero-Config Auto-Discovery & Hotspot Helper:** Automatically scans IPv6 link-local multicast and local hotspot subnets. Includes an instant MAC-to-IPv6 converter using SLAAC EUI-64 standards.
 * 🛡️ **Zero Power-Manager Tampering (Safe Auto-Lock):** Does **NOT** alter the system power manager or force persistent stay-on. Your scooter's built-in auto-lock and anti-theft security remain 100% untouched.
 * 🔓 **Safe & Reversible In-Memory ADB Unlock:** Authorizes ADB over TCP port 5555 using a temporary RAM bind-mount (`mount --bind`). No system, vendor, or boot partitions are ever modified.
@@ -167,10 +167,13 @@ ola-s1-mods/
 
 ### 🤝 Acknowledgments & Credits
 
-* **Dev Vikram Singh ([@itsmobsys](https://github.com/itsmobsys))** — Core reverse-engineering research on the Ola S1 `wifican` diagnostics gRPC protocol and the original implementation of `ola.py` in the [`ola-s1-rea`](https://github.com/itsmobsys/ola-s1-rea) project.
-* **Chayan Mistry** — [Quick Ball](https://github.com/chayanforyou/QuickBall) lightweight floating touch navigation overlay for Android.
-* **Lelonio** — [Square Music](https://github.com/Lelonio/Square) lightweight, ad-free music player.
+* **Dev Vikram Singh ([@itsmobsys](https://github.com/itsmobsys))** — Core reverse-engineering research on the Ola S1 `wifican` diagnostics gRPC protocol, the `scootermode`/ADB-key unlock technique, and the original `ola.py` in the [`ola-s1-rea`](https://github.com/itsmobsys/ola-s1-rea) project.
+* **Chayan Mistry** — [Quick Ball](https://github.com/chayanforyou/QuickBall), the floating touch navigation overlay the Balls mod is based on.
+* **Lelonio** — [Square](https://github.com/Lelonio/Square), the open-source music player the bundled Music Mod is a fork of.
+* **shihabal3amri** — [DiPlay](https://github.com/shihabal3amri/DiPlay), the open-source projection app that OpenPlay is a fork of.
 * The open-source Android and automotive reverse engineering community.
+
+> Each bundled or downloadable app (Balls, Music Mod, Android Auto, OpenPlay) is distributed under the license of its upstream project, with its `LICENSE`/`NOTICE` preserved. *"CarPlay"* is a trademark of Apple Inc.; *"Android Auto"* of Google LLC — used only to describe compatibility, with no affiliation.
 
 ---
 
@@ -180,13 +183,15 @@ ola-s1-mods/
 > **LEGAL DISCLAIMER & TRADEMARK NOTICE:**
 > This repository and application are an independent, non-commercial, open-source educational utility developed by independent software enthusiasts. This project is **NOT** affiliated, associated, authorized, endorsed by, or in any way officially connected with **Ola Electric Mobility Ltd.**, **ANI Technologies Pvt. Ltd.**, or any of their subsidiaries or affiliates.
 > 
-> The names *"Ola"*, *"Ola Electric"*, *"MoveOS"*, *"S1"*, *"S1 Pro"*, and all related product names, trademarks, service marks, and emblems are registered trademarks of their respective owners. Any reference to these trademarks within this repository, documentation, or application is strictly for descriptive and nominative fair use (in accordance with Section 30 of the Indian Trade Marks Act, 1999) to indicate software/hardware compatibility.
+> *"Ola"*, *"Ola Electric"* and *"MoveOS"* are trademarks of Ola Electric Mobility Ltd. *"S1"*, *"S1 Pro"* and other model names are product designations used only descriptively to indicate compatibility — no claim of trademark ownership is made over them by Ola or by this project. Any reference to these names within this repository, documentation, or application is strictly descriptive and nominative fair use (in accordance with Section 30 of the Indian Trade Marks Act, 1999).
 > 
 > The developers assume no liability for the use or misuse of this software. Use at your own discretion.
 
 * **Lawful Interoperability:** Research and development are carried out under lawful interoperability doctrines, specifically **Section 52(1)(ab) of the Indian Copyright Act, 1957**, which explicitly permits the reverse engineering and adaptation of computer programs to achieve interoperability with other programs or devices, and international Fair Use principles.
 * **Safety & Powertrain Non-Interference:** At no point does this software modify, reflash, or compromise safety-critical vehicle components such as the Motor Controller Unit (MCU), Battery Management System (BMS), accelerator/throttle mapping, or braking subsystems. All interactions are confined strictly to the userland Android infotainment head unit.
-* **No Cloud or Backend Interference:** No remote servers, telematics infrastructure, cellular eSIM services, or subscription backends are accessed, compromised, or disrupted.
+* **No Cloud or Backend Interference:** No remote servers, telematics infrastructure, cellular eSIM services, or subscription backends are accessed, compromised, or disrupted. The app talks only to the scooter on the local network and does not use any Ola account, cloud credential, or private signing key.
+* **Owner's Own Device:** All operations run against a device the user owns and physically controls, over its own local network, at the owner's initiative. Any vehicle data shown (VIN, registration, telemetry) is read from the owner's own scooter for their own use.
+* **Distribution:** This app is **not** published on the Google Play Store. It is released only as an APK on GitHub for owners who choose to sideload it. Modifying your scooter may void its warranty.
 
 ---
 
