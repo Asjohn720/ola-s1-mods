@@ -18,13 +18,13 @@ data class OnlineApp(
 object OnlineAppCatalog {
     val carPlayApp = OnlineApp(
         id = "openplay_carplay",
-        displayName = "OpenPlay (CarPlay)",
+        displayName = "OpenPlay",
         packageName = "com.asjohn720.openplay",
         downloadUrl = "https://storage.googleapis.com/publish-apk/openplay-olas1-release.apk",
         fileName = "openplay-olas1-release.apk",
-        description = "Apple CarPlay & phone projection mod for Ola S1 MoveOS display.",
+        description = "Phone-projection mod for the S1 display (CarPlay-compatible). Fork of DiPlay. 'CarPlay' is a trademark of Apple Inc.; not affiliated.",
         sizeText = "18.2 MB",
-        tag = "CarPlay"
+        tag = "Projection"
     )
 
     val apps = listOf(

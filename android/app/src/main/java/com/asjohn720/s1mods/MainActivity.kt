@@ -311,7 +311,7 @@ fun MainAppScaffold(manager: ScooterManager) {
                         SocialButton("Instagram", "https://www.instagram.com/asjohn720.exe", context, modifier = Modifier.weight(1f))
                     }
                     Text(
-                        text = "MIT License. Not affiliated with Ola Electric.",
+                        text = "MIT License. Unofficial and not affiliated with, endorsed by, or supported by Ola Electric. 'Ola' and 'MoveOS' are trademarks of Ola Electric; 'S1' and model names are used descriptively. Modifying your scooter may void its warranty; use at your own risk.",
                         fontSize = 11.sp,
                         color = TextMuted,
                         lineHeight = 15.sp
