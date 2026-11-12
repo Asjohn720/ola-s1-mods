@@ -299,12 +299,22 @@ def main():
     # Step 5: Verify Bundled APKs
     print_step(5, "Verifying Bundled Mod APK Packages")
     repo_dir = os.path.dirname(os.path.abspath(__file__))
-    apks_dir = os.path.join(repo_dir, "apks")
+    candidate_dirs = [
+        os.path.join(repo_dir, "apks"),
+        os.path.join(repo_dir, "android", "app", "src", "main", "assets"),
+    ]
+
+    def resolve_apk(filename: str) -> str:
+        for d in candidate_dirs:
+            target = os.path.join(d, filename)
+            if os.path.isfile(target):
+                return target
+        return os.path.join(candidate_dirs[0], filename)
 
     apks_to_install = {
-        "Balls Navigation": os.path.join(apks_dir, "balls-1.1.0-lite-release.apk"),
-        "Music Mod": os.path.join(apks_dir, "musicmod-release.apk"),
-        "Android Auto": os.path.join(apks_dir, "com.asjohn720.androidauto.apk")
+        "Balls Navigation": resolve_apk("balls-1.1.0-lite-release.apk"),
+        "Music Mod": resolve_apk("musicmod-release.apk"),
+        "Android Auto": resolve_apk("com.asjohn720.androidauto.apk")
     }
 
     if not os.path.isfile(apks_to_install["Balls Navigation"]):

@@ -264,6 +264,131 @@ def info(channel):
     return 0
 
 
+def recover(channel):
+    """Failsafe recovery: brings MoveOS Speedometer cluster back to front."""
+    print("[*] Performing emergency Speedometer Cluster recovery...")
+    run(channel, f"am start -n {HMI}", 30, quiet=True)
+    run(channel, "input keyevent 3", 10, quiet=True)  # HOME
+    run(channel, "input keyevent 4", 10, quiet=True)  # BACK (dismiss modals)
+    run(channel, f"am start -n {HMI}", 10, quiet=True)
+    time.sleep(1.0)
+    top(channel)
+    print("[+] MoveOS Speedometer Cluster restored.")
+    return 0
+
+
+def telemetry(channel):
+    """Queries hardware health: RAM, CPU thermals, storage, battery, Wi-Fi."""
+    print("=" * 60)
+    print("          Ola S1 Head Unit - System Health & Telemetry        ")
+    print("=" * 60)
+    # Memory
+    _, mem = run(channel, "cat /proc/meminfo", 20, quiet=True)
+    mem_total = mem_avail = mem_free = 0
+    for line in (mem or "").splitlines():
+        if line.startswith("MemTotal:"):
+            mem_total = int(line.split()[1]) // 1024
+        elif line.startswith("MemAvailable:"):
+            mem_avail = int(line.split()[1]) // 1024
+        elif line.startswith("MemFree:"):
+            mem_free = int(line.split()[1]) // 1024
+    mem_used = mem_total - (mem_avail or mem_free)
+    print(f"RAM Usage:     {mem_used} MB / {mem_total} MB (Free: {mem_avail or mem_free} MB)")
+
+    # CPU Temperature
+    _, temp_raw = run(channel, "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null", 20, quiet=True)
+    try:
+        temp_val = float((temp_raw or "").strip())
+        temp_c = temp_val / 1000.0 if temp_val > 200 else temp_val
+        print(f"SoC Thermal:   {temp_c:.1f}°C")
+    except Exception:
+        print("SoC Thermal:   N/A")
+
+    # Storage
+    _, df_out = run(channel, "df -h /data", 20, quiet=True)
+    for line in (df_out or "").splitlines():
+        if "/data" in line:
+            parts = line.split()
+            if len(parts) >= 5:
+                print(f"Data Storage:  Used {parts[2]} of {parts[1]} ({parts[4]} used)")
+
+    # Battery
+    _, batt_out = run(channel, "dumpsys battery", 20, quiet=True)
+    level = temp = status = ""
+    for line in (batt_out or "").splitlines():
+        line = line.strip()
+        if line.startswith("level:"):
+            level = line.split(":", 1)[1].strip() + "%"
+        elif line.startswith("temperature:"):
+            try:
+                t = float(line.split(":", 1)[1].strip()) / 10.0
+                temp = f"{t:.1f}°C"
+            except Exception:
+                pass
+        elif line.startswith("status:"):
+            status = line.split(":", 1)[1].strip()
+    if level:
+        print(f"Battery:       Level: {level} | Temp: {temp or 'N/A'} | Status Code: {status}")
+
+    # Wi-Fi
+    _, wifi_out = run(channel, "dumpsys wifi | grep -E 'mWifiInfo' | head -1", 20, quiet=True)
+    if wifi_out:
+        print(f"Wi-Fi Link:    {wifi_out.strip()[:60]}...")
+    print("=" * 60)
+    return 0
+
+
+def powersave(channel):
+    """Idle power saving: dims screen, stops heavy apps, sets 2m timeout."""
+    print("[*] Activating Low-Power Screen Care & Idle Mode...")
+    run(channel, "settings put system screen_brightness 25", 20, quiet=True)
+    run(channel, "am force-stop org.mozilla.focus", 20, quiet=True)
+    run(channel, "am force-stop com.asjohn720.androidauto", 20, quiet=True)
+    run(channel, "settings put system screen_off_timeout 120000", 20, quiet=True)
+    run(channel, "svc power stayon false", 20, quiet=True)
+    run(channel, f"am start -n {HMI}", 20, quiet=True)
+    print("[+] Brightness dimmed to safe low level, background apps stopped, sleep timer active (2m).")
+    return 0
+
+
+def uninstall(channel):
+    """Completely uninstalls all modded APKs, cleans /data/local/tmp, and unmounts ADB RAM key."""
+    print("=" * 65)
+    print("      COMPLETE CLEAN UNINSTALL & FACTORY MOVEOS RESTORE        ")
+    print("=" * 65)
+    mods = [
+        ("Smart HUD & S1Mods", "com.asjohn720.s1mods"),
+        ("Balls Floating Navigation", "com.asjohn720.ball"),
+        ("Music Mod", "com.asjohn720.musicmod"),
+        ("Android Auto", "com.asjohn720.androidauto"),
+        ("CarPlay / OpenPlay", "com.asjohn720.openplay"),
+        ("Firefox Focus", "org.mozilla.focus"),
+    ]
+    for name, pkg in mods:
+        print(f"[*] Removing {name} ({pkg})...")
+        run(channel, f"pm uninstall {pkg}", 20, quiet=True)
+
+    print("[*] Cleaning temporary files in /data/local/tmp...")
+    run(channel, "rm -rf /data/local/tmp/*", 20, quiet=True)
+
+    print("[*] Restoring persistent security property...")
+    run(channel, "setprop persist.ola.security.scootermode prod", 20, quiet=True)
+
+    print("[*] Unmounting RAM bind-mount keys...")
+    run(channel, "umount /data/misc/adb/adbkeymoveos3_pub_prod 2>/dev/null", 15, quiet=True)
+    run(channel, "umount /data/misc/adb/adb_keys 2>/dev/null", 15, quiet=True)
+
+    print("[*] Bringing factory MoveOS Speedometer cluster to front...")
+    run(channel, f"am start -n {HMI}", 20, quiet=True)
+    run(channel, "input keyevent 3", 10, quiet=True)
+
+    print("\n[+] UNINSTALL COMPLETE!")
+    print("[+] All modded applications and temporary keys have been removed.")
+    print("[+] Tip: Restart the scooter to clear RAM for 100% factory state.")
+    print("=" * 65)
+    return 0
+
+
 def interactive(channel, raw: bool):
     print("Root shell. Type a command, or 'exit'.")
     print("Commands run through sh unless --raw is set.")
@@ -340,6 +465,13 @@ def main(argv=None):
     add("sleep", help="turn screen off and restore auto-sleep")
     add("top", help="show the resumed activity")
     add("info", help="uid, Android build, scooter mode")
+    add("recover", help="emergency recovery of primary MoveOS Speedometer cluster")
+    add("home", help="alias for recover / dashboard home")
+    add("telemetry", help="system health: RAM, CPU thermals, storage, battery, Wi-Fi")
+    add("health", help="alias for telemetry")
+    add("powersave", help="dim screen, terminate heavy apps, set 2m sleep timeout")
+    add("hud", help="launch Zenith Lumina Smart HUD full-screen on scooter display")
+    add("uninstall", help="cleanly remove all mod APKs and restore factory stock MoveOS")
 
     key = add("key", help="send an Android key code")
     key.add_argument("code", type=int)
@@ -453,6 +585,25 @@ def main(argv=None):
 
         if a == "info":
             return info(channel)
+
+        if a in ("recover", "home"):
+            return recover(channel)
+
+        if a in ("telemetry", "health"):
+            return telemetry(channel)
+
+        if a == "powersave":
+            return powersave(channel)
+
+        if a == "hud":
+            print("[*] Launching Zenith Lumina Smart HUD on head unit...")
+            status, _ = run(channel, "am start -n com.asjohn720.s1mods/.SmartHudActivity", args.timeout)
+            time.sleep(1.0)
+            top(channel)
+            return 0 if ok(status) else 1
+
+        if a == "uninstall":
+            return uninstall(channel)
 
         if a == "shell":
             if not args.command:
