@@ -160,7 +160,7 @@ ola-s1-mods/
 
 ## 👨‍💻 Author & Contact
 
-* **Anand ([@Asjohn720](https://github.com/Asjohn720))** — Automated discovery engine, in-memory ADB unlock workflow, Android app architecture, and project packaging.
+* **Anand ([@Asjohn720](https://github.com/Asjohn720))** — Network discovery, device connection workflow, Android app architecture, and project packaging.
   - 🌐 **GitHub:** [@Asjohn720](https://github.com/Asjohn720)
   - 🐦 **X (Twitter):** [@asjohn720](https://x.com/asjohn720)
   - 📸 **Instagram:** [@asjohn720.exe](https://www.instagram.com/asjohn720.exe)
@@ -168,6 +168,7 @@ ola-s1-mods/
 ### 🤝 Acknowledgments & Credits
 
 * **Dev Vikram Singh ([@itsmobsys](https://github.com/itsmobsys))** — Core reverse-engineering research on the Ola S1 `wifican` diagnostics gRPC protocol, the `scootermode`/ADB-key unlock technique, and the original `ola.py` in the [`ola-s1-rea`](https://github.com/itsmobsys/ola-s1-rea) project.
+* **Special thanks — Axiom ([pitzel/axiom](https://codeberg.org/pitzel/axiom), Apache-2.0)** 🤝 — for its open diagnostic, CAN telemetry and fault-detection research on Ola scooters.
 * **Chayan Mistry** — [Quick Ball](https://github.com/chayanforyou/QuickBall), the floating touch navigation overlay the Balls mod is based on.
 * **Lelonio** — [Square](https://github.com/Lelonio/Square), the open-source music player the bundled Music Mod is a fork of.
 * **shihabal3amri** — [DiPlay](https://github.com/shihabal3amri/DiPlay), the open-source projection app that OpenPlay is a fork of.
