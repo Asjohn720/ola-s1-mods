@@ -1,6 +1,6 @@
 # 🛵 S1Mods Android Application
 
-**S1Mods** is an all-in-one open-source Android application designed to configure, mod, and control MoveOS-powered infotainment units directly from your smartphone over Wi-Fi or Phone Hotspot — completely eliminating the need for a laptop or PC.
+**S1Mods** is an all-in-one open-source Android application designed to configure, mod, and control MoveOS-powered infotainment units (running **MoveOS 4.0.5 and above**) directly from your smartphone over Wi-Fi or Phone Hotspot — completely eliminating the need for a laptop or PC.
 
 > [!IMPORTANT]
 > **LEGAL DISCLAIMER & TRADEMARK NOTICE:**
@@ -10,6 +10,8 @@
 ---
 
 ## 🚀 Key Features
+
+* **🛵 MoveOS 4.0.5+ Compatibility:** Built and verified for **MoveOS 4.0.5 and above** (including MoveOS 5.x). Older releases (< 4.0.5) are unsupported.
 
 * **📱 Phone Hotspot / Wi-Fi Discovery:** Automatically scans link-local IPv6 neighbors (`fe80::...`) and probes the scooter's root diagnostics service on TCP port `50005`. Includes a built-in SLAAC EUI-64 MAC-to-IPv6 converter for instant hotspot connection.
 * **🛡️ Zero Power-Manager Tampering (Vehicle Auto-Lock Preserved):** Unlike unsafe scripts, S1Mods does **NOT** tamper with system power manager or force `svc power stayon true`. Your scooter's auto-lock security remains 100% functional.

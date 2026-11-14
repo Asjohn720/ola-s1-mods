@@ -71,7 +71,7 @@ data class RamInfo(
 
 /**
  * Minimal vehicle identity shown on the connect/setup card.
- * supported = MoveOS major version >= 5 (1-4 are not supported; mods may not work).
+ * supported = MoveOS >= 4.0.5 (MoveOS 4.0.5+ and 5.x; older builds are not supported).
  */
 data class VehicleSummary(
     val model: String,
@@ -554,9 +554,24 @@ class ScooterManager(private val context: Context) {
 
         val model = fetchModelName(client)
         log("[+] $model, $moveOs")
-        val result = VehicleSummary(model, moveOs, major, major != null && major >= 5)
+        val supported = isMoveOsSupported(firstLine)
+        val result = VehicleSummary(model, moveOs, major, supported)
         vehicleSummary.value = result
         result
+    }
+
+    private fun isMoveOsSupported(versionStr: String): Boolean {
+        // Supported on MoveOS 4.0.5 and above
+        val match = Regex("""(\d+)(?:\.(\d+))?(?:\.(\d+))?""").find(versionStr) ?: return false
+        val major = match.groupValues.getOrNull(1)?.toIntOrNull() ?: return false
+        val minor = match.groupValues.getOrNull(2)?.toIntOrNull() ?: 0
+        val patch = match.groupValues.getOrNull(3)?.toIntOrNull() ?: 0
+
+        return when {
+            major > 4 -> true
+            major == 4 -> if (minor > 0) true else patch >= 5
+            else -> false
+        }
     }
 
     private suspend fun fetchModelName(client: S1GrpcClient): String {

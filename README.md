@@ -1,13 +1,13 @@
 # 🛵 S1Mods - Open-Source Infotainment Utility for MoveOS
 
-[![Target OS](https://img.shields.io/badge/MoveOS-2.x%20|%203.x%20|%204.x%20|%205.x-green.svg)](#supported-vehicles--compatibility-matrix)
+[![Target OS](https://img.shields.io/badge/MoveOS-≥%204.0.5%20(4.0.5%20%26%20Above)-green.svg)](#supported-vehicles--compatibility-matrix)
 [![Head Unit OS](https://img.shields.io/badge/Head%20Unit-Android%2010%20%7C%2013-blue.svg)](#technical-specifications)
 [![Stack](https://img.shields.io/badge/Stack-Kotlin%20Compose%20+%20Python%203%20+%20ADB-brightgreen.svg)](#key-features)
 [![Protocol](https://img.shields.io/badge/Protocol-Root%20gRPC%20%28Port%2050005%29-orange.svg)](#technical-specifications)
 [![Safety](https://img.shields.io/badge/Safety-100%25%20In--Memory%20RAM%20Mount-blueviolet.svg)](#safety-reversibility--zero-flash-modification)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An automated, one-click open-source setup utility and standalone Android application to unlock wireless ADB, configure **Floating Touch Navigation (Back, Home, Settings)** and **Music Player** on MoveOS-powered infotainment units.
+An automated, one-click open-source setup utility and standalone Android application to unlock wireless ADB, configure **Floating Touch Navigation (Back, Home, Settings)** and **Music Player** on MoveOS-powered infotainment units running **MoveOS 4.0.5 and above**.
 
 Zero soldering, zero flash partition writes, and 100% reversible with a single vehicle restart.
 
@@ -65,6 +65,9 @@ Watch the modded infotainment interface and floating touch navigation running li
 
 ## 📱 Supported Vehicles & Compatibility Matrix
 
+> [!IMPORTANT]
+> **MoveOS Firmware Requirement:** S1Mods is officially supported **only on MoveOS 4.0.5 and above** (including MoveOS 4.0.5+ and MoveOS 5.x). Older firmware versions (MoveOS 1.x, 2.x, 3.x, and MoveOS 4 builds below 4.0.5) are **not supported**.
+
 > [!NOTE]
 > **Display Requirement:** S1Mods requires an **Android-based 7" touchscreen head unit** with Wi-Fi connectivity. Only Ola models equipped with the 7-inch Android infotainment display are compatible.
 
@@ -72,10 +75,19 @@ Watch the modded infotainment interface and floating touch navigation running li
 
 | Vehicle Model | Display Screen | Head Unit SoC | MoveOS Version | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Ola S1 Pro (Gen 2)** | 7.0" TFT Touchscreen (800x480 / 720p) | Qualcomm Snapdragon 625 (`msm8953`, 3GB RAM) | MoveOS 3, 4, 5 | ✅ **100% Tested & Verified** |
-| **Ola S1 Pro (Gen 1)** | 7.0" TFT 720p Touchscreen (1280x768) | Qualcomm Snapdragon 212 (`APQ8009`, 3GB RAM) | MoveOS 2, 3, 4, 5 | 🟢 **Supported (Compatible)** |
-| **Ola S1 (Gen 1)** | 7.0" TFT 720p Touchscreen (1280x768) | Qualcomm Snapdragon 212 (`APQ8009`, 3GB RAM) | MoveOS 2, 3, 4, 5 | 🟢 **Supported (Compatible)** |
-| **Ola S1 Air** | 7.0" TFT Touchscreen (800x480) | Octa-Core Processor (3GB RAM) | MoveOS 3, 4, 5 | 🟢 **Supported (Compatible)** |
+| **Ola S1 Pro (Gen 2)** | 7.0" TFT Touchscreen (800x480 / 720p) | Qualcomm Snapdragon 625 (`msm8953`, 3GB RAM) | MoveOS ≥ 4.0.5 (4.0.5+ / 5.x) | ✅ **100% Tested & Verified** |
+| **Ola S1 Pro (Gen 1)** | 7.0" TFT 720p Touchscreen (1280x768) | Qualcomm Snapdragon 212 (`APQ8009`, 3GB RAM) | MoveOS ≥ 4.0.5 (4.0.5+ / 5.x) | 🟢 **Supported (Compatible)** |
+| **Ola S1 (Gen 1)** | 7.0" TFT 720p Touchscreen (1280x768) | Qualcomm Snapdragon 212 (`APQ8009`, 3GB RAM) | MoveOS ≥ 4.0.5 (4.0.5+ / 5.x) | 🟢 **Supported (Compatible)** |
+| **Ola S1 Air** | 7.0" TFT Touchscreen (800x480) | Octa-Core Processor (3GB RAM) | MoveOS ≥ 4.0.5 (4.0.5+ / 5.x) | 🟢 **Supported (Compatible)** |
+
+### 🎛️ MoveOS Firmware Compatibility Breakdown
+
+| MoveOS Release | Compatibility | Notes |
+| :--- | :--- | :--- |
+| **MoveOS 5.x** | ✅ **Fully Supported** | Verified with in-memory ADB unlock, Floating Touch Navigation (Balls), Music Mod, and projection. |
+| **MoveOS 4.0.5+** (4.0.5, 4.1.x, etc.) | ✅ **Fully Supported** | Baseline supported firmware version for all S1Mods features. |
+| **MoveOS 4.0.0 – 4.0.4** | ❌ **Not Supported** | Early MoveOS 4 builds lack required diagnostics/overlay stability. Update your scooter to MoveOS 4.0.5 or above. |
+| **MoveOS 2.x & 3.x** | ❌ **Not Supported** | Legacy firmware interfaces and older partition layouts are incompatible. |
 
 ### ❌ Incompatible Vehicles (Segmented LCD / Non-Android Models)
 
@@ -90,7 +102,7 @@ The budget **Ola S1 X** series uses a conventional non-touch digital instrument 
 
 ## 📋 Technical Specifications
 
-> Verified live on **Ola S1 Pro (Gen 2)** running MoveOS on Android 10 (Snapdragon 625).
+> Verified live on **Ola S1 Pro (Gen 2)** running MoveOS (4.0.5+) on Android 10 (Snapdragon 625).
 
 | Component / Layer | Specification | Technical Details |
 | :--- | :--- | :--- |
