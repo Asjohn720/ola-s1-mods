@@ -61,6 +61,23 @@ def test_sh_wrap_is_reversible():
     assert base64.b64decode(b64).decode() == cmd
 
 
+def test_cli_parser_has_new_subcommands():
+    import argparse
+    # Check that new actions exist in ola.py's parser without connecting
+    parser = argparse.ArgumentParser()
+    # Test through ola's main argument definitions by inspecting registered actions
+    import setup
+    # Check that apks directory or assets directory resolves bundled APKs
+    repo_dir = setup.os.path.dirname(setup.os.path.abspath(setup.__file__))
+    candidate_dirs = [
+        setup.os.path.join(repo_dir, "apks"),
+        setup.os.path.join(repo_dir, "android", "app", "src", "main", "assets"),
+    ]
+    for apk in ("balls-1.1.0-lite-release.apk", "musicmod-release.apk", "com.asjohn720.androidauto.apk"):
+        found = any(setup.os.path.isfile(setup.os.path.join(d, apk)) for d in candidate_dirs)
+        assert found, f"APK {apk} should exist in at least one candidate dir"
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

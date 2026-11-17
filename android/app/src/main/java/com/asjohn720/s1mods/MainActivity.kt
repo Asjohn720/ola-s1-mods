@@ -33,12 +33,14 @@ import com.asjohn720.s1mods.ui.screens.ConnectVehicleScreen
 import com.asjohn720.s1mods.ui.screens.CustomApkScreen
 import com.asjohn720.s1mods.ui.screens.SetupScreen
 import com.asjohn720.s1mods.ui.screens.ShellScreen
+import com.asjohn720.s1mods.ui.screens.SmartHudScreen
 import com.asjohn720.s1mods.ui.screens.ToolboxScreen
 import com.asjohn720.s1mods.ui.theme.*
 
 enum class AppTab(val title: String, val icon: ImageVector) {
     SETUP("Setup", Icons.Default.Bolt),
     TOOLBOX("Tools", Icons.Default.Dashboard),
+    SMART_HUD("HUD", Icons.Default.Speed),
     CUSTOM_APK("Apps", Icons.Default.Download),
     TERMINAL("Shell", Icons.Default.Terminal)
 }
@@ -243,6 +245,7 @@ fun MainAppScaffold(manager: ScooterManager) {
                 when (selectedTab) {
                     AppTab.SETUP -> SetupScreen(manager)
                     AppTab.TOOLBOX -> ToolboxScreen(manager)
+                    AppTab.SMART_HUD -> SmartHudScreen(manager)
                     AppTab.CUSTOM_APK -> CustomApkScreen(manager)
                     AppTab.TERMINAL -> ShellScreen(manager)
                 }
