@@ -3,13 +3,31 @@
 [![Target OS](https://img.shields.io/badge/MoveOS-≥%204.0.5%20(4.0.5%20%26%20Above)-green.svg)](#supported-vehicles--compatibility-matrix)
 [![Head Unit OS](https://img.shields.io/badge/Head%20Unit-Android%2010%20%7C%2013-blue.svg)](#technical-specifications)
 [![Stack](https://img.shields.io/badge/Stack-Kotlin%20Compose%20+%20Python%203%20+%20ADB-brightgreen.svg)](#key-features)
-[![Protocol](https://img.shields.io/badge/Protocol-Root%20gRPC%20%28Port%2050005%29-orange.svg)](#technical-specifications)
+[![Protocol](https://img.shields.io/badge/Protocol-Diagnostics%20gRPC%20%28Port%2050005%29-orange.svg)](#technical-specifications)
 [![Safety](https://img.shields.io/badge/Safety-100%25%20In--Memory%20RAM%20Mount-blueviolet.svg)](#safety-reversibility--zero-flash-modification)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An automated, one-click open-source setup utility and standalone Android application to unlock wireless ADB, configure **Floating Touch Navigation (Back, Home, Settings)** and **Music Player** on MoveOS-powered infotainment units running **MoveOS 4.0.5 and above**.
+An automated, one-click open-source setup utility and standalone Android application to enable wireless ADB, configure **Floating Touch Navigation (Back, Home, Settings)** and **Music Player** on MoveOS-powered infotainment units running **MoveOS 4.0.5 and above**.
 
 Zero soldering, zero flash partition writes, and 100% reversible with a single vehicle restart.
+
+---
+
+## ⚠️ Disclaimer & Scope of Modification
+
+S1Mods is an independent, community-developed project and is not affiliated with, endorsed by, or sponsored by Ola Electric.
+
+- **No Modification to Core Vehicle Systems:** S1Mods is designed to extend the scooter's infotainment experience. It does not modify the stock vehicle firmware, motor controller (MCU), battery management system (BMS), throttle/powertrain mappings, braking, or core vehicle control logic.
+- **Independent Functionality:** All additional features provided by S1Mods operate through separately installed applications, services, and supported interfaces.
+- **Stock Software Issues:** S1Mods is not responsible for bugs, malfunctions, or unexpected behaviour originating from Ola's original software, firmware, or hardware.
+- **No Replacement for Official Features:** S1Mods does not replace, repair, or guarantee the functionality of features provided by Ola Electric.
+- **User Responsibility:** Users are responsible for understanding the modifications they install and following the provided installation and usage instructions. Modifying your scooter may void its warranty.
+- **Compatibility:** Features may behave differently across scooter generations and MoveOS versions. Compatibility and stability are not guaranteed on every configuration.
+- **No Cloud or Telematics Access:** The software communicates exclusively over your local Wi-Fi or phone hotspot network. It does not access, intercept, or tamper with Ola cloud servers, telematics infrastructure, eSIM connectivity, user accounts, or private signing keys.
+
+S1Mods is provided as-is, without warranties of any kind. Use it at your own discretion and risk.
+
+All trademarks, product names, and brand references belong to their respective owners.
 
 ---
 
@@ -43,23 +61,23 @@ Watch the modded infotainment interface and floating touch navigation running li
 </video>
 
 > [!NOTE]
-> **Notice on Siri / iOS Voice Unlock in the Video:**
-> The Siri Shortcuts / iOS voice unlocking feature demonstrated in the video is **private** and not part of this public release, as it relies on personal account credentials and private session keys. You can unlock your vehicle normally using the official companion app, the touchscreen passkey on the dashboard, or through standard wireless ADB / gRPC commands.
+> **Notice on Voice Actions / Custom Shortcuts in the Video:**
+> The voice action shortcut demonstrated in the video is **private** and not part of this public release, as it relies on personal account credentials and private session keys. You can access and wake your vehicle normally using the official companion app, the touchscreen passkey on the dashboard, or through standard local diagnostic interfaces.
 
 ---
 
 ## ✨ Key Features
 
-* 📲 **All-in-One Android App (`S1Mods`):** Complete standalone Android application to auto-detect your scooter over a phone hotspot, unlock ADB, install bundled mod APKs, capture screenshots, and open settings directly from your phone — **zero PC required!** Located in [`android/`](android/) and pre-compiled as [`S1Mods-v1.2.apk`](S1Mods-v1.2.apk).
+* 📲 **All-in-One Android App (`S1Mods`):** Complete standalone Android application to auto-detect your scooter over a phone hotspot, authorize wireless ADB, install bundled mod APKs, capture screenshots, and open settings directly from your phone — **zero PC required!** Located in [`android/`](android/) and pre-compiled as [`S1Mods-v1.2.apk`](S1Mods-v1.2.apk).
 * 🔍 **Zero-Config Auto-Discovery & Hotspot Helper:** Automatically scans IPv6 link-local multicast and local hotspot subnets. Includes an instant MAC-to-IPv6 converter using SLAAC EUI-64 standards.
 * 🛡️ **Zero Power-Manager Tampering (Safe Auto-Lock):** Does **NOT** alter the system power manager or force persistent stay-on. Your scooter's built-in auto-lock and anti-theft security remain 100% untouched.
-* 🔓 **Safe & Reversible In-Memory ADB Unlock:** Authorizes ADB over TCP port 5555 using a temporary RAM bind-mount (`mount --bind`). No system, vendor, or boot partitions are ever modified.
+* 🛡️ **Safe & Reversible In-Memory ADB Authorization:** Authorizes ADB over TCP port 5555 using a temporary RAM bind-mount (`mount --bind`). No system, vendor, or boot partitions are ever modified.
 * 📱 **Floating Touch Navigation Controls:** Installs **Balls** to provide essential touch buttons (Back, Home, Settings) directly on the infotainment display.
 * 🎵 **Offline & Streaming Music Player:** Installs **Music Mod**, giving you ad-free music playback directly from the dash.
 * 📦 **Pre-Bundled Local APKs:** Modded application packages are pre-bundled in `apks/` (`balls-1.0.0-lite-release.apk` and `musicmod-release.apk`) for instant, offline installation with zero external dependencies.
 * 🛠️ **Automated Permission Grants:** Grants `SYSTEM_ALERT_WINDOW` (overlay), `WRITE_SETTINGS`, and Android Accessibility Services via ADB without manual prompt tapping.
 * 🎯 **1-Click Execution:** Run via Android App or double-click `setup.bat` on PC.
-* 🐍 **Direct Root Controller (`ola.py`):** Includes a standalone, weakly-typed gRPC root control script to inspect vehicle properties, open settings, take screenshots, or execute root shell commands.
+* 🔍 **Diagnostics & Properties Helper (`ola.py`):** Standalone Python diagnostics utility communicating over local gRPC to inspect vehicle properties, open settings, capture screenshots, or run diagnostic queries.
 
 ---
 
@@ -84,7 +102,7 @@ Watch the modded infotainment interface and floating touch navigation running li
 
 | MoveOS Release | Compatibility | Notes |
 | :--- | :--- | :--- |
-| **MoveOS 5.x** | ✅ **Fully Supported** | Verified with in-memory ADB unlock, Floating Touch Navigation (Balls), Music Mod, and projection. |
+| **MoveOS 5.x** | ✅ **Fully Supported** | Verified with in-memory ADB authorization, Floating Touch Navigation (Balls), Music Mod, and projection. |
 | **MoveOS 4.0.5+** (4.0.5, 4.1.x, etc.) | ✅ **Fully Supported** | Baseline supported firmware version for all S1Mods features. |
 | **MoveOS 4.0.0 – 4.0.4** | ❌ **Not Supported** | Early MoveOS 4 builds lack required diagnostics/overlay stability. Update your scooter to MoveOS 4.0.5 or above. |
 | **MoveOS 2.x & 3.x** | ❌ **Not Supported** | Legacy firmware interfaces and older partition layouts are incompatible. |
@@ -111,16 +129,16 @@ The budget **Ola S1 X** series uses a conventional non-touch digital instrument 
 | **Processor (SoC)** | Qualcomm Snapdragon 625 (`msm8953`) | Octa-Core ARM Cortex-A53 @ 2.0 GHz (64-bit) |
 | **Primary ABI** | `arm64-v8a` (64-bit) | Native 64-bit userland (compatible with `armeabi-v7a`) |
 | **Graphics (GPU)** | Qualcomm Adreno 506 | Hardware acceleration for native Kanzi HMI dashboard |
-| **Diagnostics Service** | Diagnostics gRPC Daemon | Weakly-typed root (`uid 0`) execution on TCP port `50005` |
+| **Diagnostics Service** | Diagnostics gRPC Daemon | Local diagnostics service on TCP port `50005` |
 | **Network Interface** | IPv6 Link-Local (`fe80::/64`) | Discovered via Wi-Fi `ff02::1` multicast ICMPv6 probing / Hotspot |
 | **ADB Auth Target** | `/data/misc/adb/adbkeymoveos3_pub_prod` | In-memory bind-mounted from `/data/local/tmp/adb_keys_mine` |
 | **Subsystem Safety** | HMI Infotainment Layer Only | Powertrain, BMS, and MCU remain physically & logically isolated |
 
 ---
 
-## 🛠️ Direct Head Unit Control (`ola.py`)
+## 🛠️ Diagnostics & Device Utility (`ola.py`)
 
-The included `ola.py` script communicates directly with the scooter's root gRPC service on port 50005 without requiring pairing or ADB:
+The included `ola.py` script communicates directly with the scooter's local diagnostics gRPC service on port 50005 over your local network:
 
 ```bash
 # Display scooter hardware & firmware details
@@ -136,11 +154,8 @@ python ola.py bluetooth --ipv6 fe80::1234:5678:9abc:def0%22
 # Capture head-unit screenshot to PC
 python ola.py screenshot dash.png --ipv6 fe80::1234:5678:9abc:def0%22
 
-# Execute arbitrary root shell commands
-python ola.py shell "ls -la /data/local/tmp" --ipv6 fe80::1234:5678:9abc:def0%22
-
-# Interactive root shell session
-python ola.py interactive --ipv6 fe80::1234:5678:9abc:def0%22
+# Inspect system build properties
+python ola.py shell "getprop ro.build.version.release" --ipv6 fe80::1234:5678:9abc:def0%22
 ```
 
 ---
@@ -151,6 +166,7 @@ python ola.py interactive --ipv6 fe80::1234:5678:9abc:def0%22
 * **In-Memory RAM Bind Mount:** The ADB key authorization uses `mount --bind` pointing to `/data/local/tmp`. It exists only in temporary RAM.
 * **Instant Reversibility:** A standard vehicle restart immediately unmounts the temporary bind and returns the vehicle to its factory state.
 * **Subsystem Isolation:** The tool communicates exclusively with the Android infotainment unit (HMI). It has no access to vehicle powertrain, throttle controls, BMS, or motor controllers.
+* **Zero Persistent System Tampering:** No modifications persist across reboot unless explicitly installed as a standalone userland application by the user.
 
 ---
 
@@ -161,11 +177,11 @@ ola-s1-mods/
 ├── android/               # S1Mods Standalone Android Application
 ├── .gitignore             # Standard Git ignore rules
 ├── LICENSE                # MIT License with research & safety disclaimer
-├── ola.py                 # Pure Python gRPC root communication engine
+├── ola.py                 # Pure Python gRPC diagnostics engine
 ├── README.md              # Project documentation & user guide
 ├── requirements.txt       # Python dependencies (grpcio)
 ├── setup.bat              # 1-Click Windows launcher
-└── setup.py               # Automated discovery, unlock, and installation engine
+└── setup.py               # Automated discovery, ADB authorization, and installation engine
 ```
 
 ---
@@ -179,7 +195,7 @@ ola-s1-mods/
 
 ### 🤝 Acknowledgments & Credits
 
-* **Dev Vikram Singh ([@itsmobsys](https://github.com/itsmobsys))** — Core reverse-engineering research on the Ola S1 `wifican` diagnostics gRPC protocol, the `scootermode`/ADB-key unlock technique, and the original `ola.py` in the [`ola-s1-rea`](https://github.com/itsmobsys/ola-s1-rea) project.
+* **Dev Vikram Singh ([@itsmobsys](https://github.com/itsmobsys))** — Core reverse-engineering research on the Ola S1 `wifican` diagnostics gRPC protocol, the `scootermode`/ADB-key authorization technique, and the original `ola.py` in the [`ola-s1-rea`](https://github.com/itsmobsys/ola-s1-rea) project.
 * **Special thanks — Axiom ([pitzel/axiom](https://codeberg.org/pitzel/axiom), Apache-2.0)** 🤝 — for its open diagnostic, CAN telemetry and fault-detection research on Ola scooters.
 * **Chayan Mistry** — [Quick Ball](https://github.com/chayanforyou/QuickBall), the floating touch navigation overlay the Balls mod is based on.
 * **Lelonio** — [Square](https://github.com/Lelonio/Square), the open-source music player the bundled Music Mod is a fork of.
@@ -196,15 +212,18 @@ ola-s1-mods/
 > **LEGAL DISCLAIMER & TRADEMARK NOTICE:**
 > This repository and application are an independent, non-commercial, open-source educational utility developed by independent software enthusiasts. This project is **NOT** affiliated, associated, authorized, endorsed by, or in any way officially connected with **Ola Electric Mobility Ltd.**, **ANI Technologies Pvt. Ltd.**, or any of their subsidiaries or affiliates.
 > 
-> *"Ola"*, *"Ola Electric"* and *"MoveOS"* are trademarks of Ola Electric Mobility Ltd. *"S1"*, *"S1 Pro"* and other model names are product designations used only descriptively to indicate compatibility — no claim of trademark ownership is made over them by Ola or by this project. Any reference to these names within this repository, documentation, or application is strictly descriptive and nominative fair use (in accordance with Section 30 of the Indian Trade Marks Act, 1999).
+> *"Ola"*, *"Ola Electric"* and *"MoveOS"* are trademarks of Ola Electric Mobility Ltd. *"S1"*, *"S1 Pro"*, *"S1 Air"*, *"S1 X"*, and other model names are product designations used only descriptively to indicate compatibility — no claim of trademark ownership is made over them by Ola or by this project. Any reference to these names within this repository, documentation, or application is strictly descriptive and nominative fair use (in accordance with Section 30 of the Indian Trade Marks Act, 1999).
 > 
-> The developers assume no liability for the use or misuse of this software. Use at your own discretion.
+> *"CarPlay"* is a trademark of Apple Inc.; *"Android Auto"* is a trademark of Google LLC — referenced solely to describe projection compatibility, with no affiliation or endorsement.
+> 
+> The developers assume no liability for the use or misuse of this software. Modifying your scooter may void its warranty. Use at your own discretion and risk.
 
-* **Lawful Interoperability:** Research and development are carried out under lawful interoperability doctrines, specifically **Section 52(1)(ab) of the Indian Copyright Act, 1957**, which explicitly permits the reverse engineering and adaptation of computer programs to achieve interoperability with other programs or devices, and international Fair Use principles.
+* **Lawful Interoperability:** Research and development are carried out under lawful interoperability doctrines, specifically **Section 52(1)(ab) of the Indian Copyright Act, 1957**, which explicitly permits the reverse engineering and adaptation of computer programs by a lawful owner to achieve interoperability with other programs or devices, and international Fair Use principles.
 * **Safety & Powertrain Non-Interference:** At no point does this software modify, reflash, or compromise safety-critical vehicle components such as the Motor Controller Unit (MCU), Battery Management System (BMS), accelerator/throttle mapping, or braking subsystems. All interactions are confined strictly to the userland Android infotainment head unit.
-* **No Cloud or Backend Interference:** No remote servers, telematics infrastructure, cellular eSIM services, or subscription backends are accessed, compromised, or disrupted. The app talks only to the scooter on the local network and does not use any Ola account, cloud credential, or private signing key.
-* **Owner's Own Device:** All operations run against a device the user owns and physically controls, over its own local network, at the owner's initiative. Any vehicle data shown (VIN, registration, telemetry) is read from the owner's own scooter for their own use.
-* **Distribution:** This app is **not** published on the Google Play Store. It is released only as an APK on GitHub for owners who choose to sideload it. Modifying your scooter may void its warranty.
+* **No Cloud or Backend Interference:** No remote servers, telematics infrastructure, cellular eSIM services, or subscription backends are accessed, compromised, or disrupted. The app talks only to the scooter on the local network and does not use any Ola account, cloud credential, or private signing key. The app generates its own local ADB key on the connecting device.
+* **Owner's Own Device:** All operations run against a device the user owns and physically controls, over its own local network, at the owner's initiative. Any vehicle data shown (VIN, registration, telemetry) is read from the owner's own scooter for their own personal diagnostic use.
+* **Distribution & Sideloading:** This app is **not** published on the Google Play Store. It is released only as an open-source APK on GitHub for owners who choose to sideload it.
+* **As-Is Provision:** S1Mods is provided "AS-IS", without warranties of any kind, express or implied.
 
 ---
 
