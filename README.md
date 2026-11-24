@@ -5,7 +5,7 @@
 [![Stack](https://img.shields.io/badge/Stack-Kotlin%20Compose%20+%20Python%203%20+%20ADB-brightgreen.svg)](#key-features)
 [![Protocol](https://img.shields.io/badge/Protocol-Diagnostics%20gRPC%20%28Port%2050005%29-orange.svg)](#technical-specifications)
 [![Safety](https://img.shields.io/badge/Safety-100%25%20In--Memory%20RAM%20Mount-blueviolet.svg)](#safety-reversibility--zero-flash-modification)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 An automated, one-click open-source setup utility and standalone Android application to enable wireless ADB, configure **Floating Touch Navigation (Back, Home, Settings)** and **Music Player** on MoveOS-powered infotainment units running **MoveOS 4.0.5 and above**.
 
@@ -176,7 +176,7 @@ python ola.py shell "getprop ro.build.version.release" --ipv6 fe80::1234:5678:9a
 ola-s1-mods/
 ├── android/               # S1Mods Standalone Android Application
 ├── .gitignore             # Standard Git ignore rules
-├── LICENSE                # MIT License with research & safety disclaimer
+├── LICENSE                # GNU GPLv3 License with research & safety disclaimer
 ├── ola.py                 # Pure Python gRPC diagnostics engine
 ├── README.md              # Project documentation & user guide
 ├── requirements.txt       # Python dependencies (grpcio)
@@ -229,4 +229,4 @@ ola-s1-mods/
 
 ## 📄 License
 
-This software is released under the [MIT License](LICENSE). All product names, logos, and brands are property of their respective owners. All company, product, and service names used in this software are for identification and compatibility purposes only.
+This software is released under the [GNU General Public License v3.0 (GPLv3)](LICENSE). All product names, logos, and brands are property of their respective owners. All company, product, and service names used in this software are for identification and compatibility purposes only.
