@@ -64,9 +64,9 @@ Watch the modded infotainment interface and floating touch navigation running li
 * 🔍 **Zero-Config Auto-Discovery & Hotspot Helper:** Automatically scans IPv6 link-local multicast and local hotspot subnets. Includes an instant MAC-to-IPv6 converter using SLAAC EUI-64 standards.
 * 🛡️ **Zero Power-Manager Tampering (Safe Auto-Lock):** Does **NOT** alter the system power manager or force persistent stay-on. Your scooter's built-in auto-lock and anti-theft security remain 100% untouched.
 * 🛡️ **Safe & Reversible In-Memory ADB Authorization:** Authorizes ADB over TCP port 5555 using a temporary RAM bind-mount (`mount --bind`). No system, vendor, or boot partitions are ever modified.
-* 📱 **Floating Touch Navigation Controls:** Installs **Balls** to provide essential touch buttons (Back, Home, Settings) directly on the infotainment display.
+* 📱 **Floating Touch Navigation Controls:** Installs **SmartBall** to provide essential touch buttons (Back, Home, Settings) directly on the infotainment display.
 * 🎵 **Offline & Streaming Music Player:** Installs **Music Mod**, giving you ad-free music playback directly from the dash.
-* 📦 **Pre-Bundled Local APKs:** Modded application packages are pre-bundled in `apks/` (`balls-1.0.0-lite-release.apk` and `musicmod-release.apk`) for instant, offline installation with zero external dependencies.
+* 📦 **Pre-Bundled Local APKs:** App packages are pre-bundled in `android/app/src/main/assets/` (`smartball-latest.apk`, `musicmod-release.apk`, and `com.asjohn720.androidauto.apk`) for instant, offline installation with zero external dependencies.
 * 🛠️ **Automated Permission Grants:** Grants `SYSTEM_ALERT_WINDOW` (overlay), `WRITE_SETTINGS`, and Android Accessibility Services via ADB without manual prompt tapping.
 * 🎯 **1-Click Execution:** Run directly from the S1Mods Android App.
 
@@ -93,7 +93,7 @@ Watch the modded infotainment interface and floating touch navigation running li
 
 | MoveOS Release | Compatibility | Notes |
 | :--- | :--- | :--- |
-| **MoveOS 5.x** | ✅ **Fully Supported** | Verified with in-memory ADB authorization, Floating Touch Navigation (Balls), Music Mod, and projection. |
+| **MoveOS 5.x** | ✅ **Fully Supported** | Verified with in-memory ADB authorization, Floating Touch Navigation (SmartBall), Music Mod, and projection. |
 | **MoveOS 4.0.5+** (4.0.5, 4.1.x, etc.) | ✅ **Fully Supported** | Baseline supported firmware version for all S1Mods features. |
 | **MoveOS 4.0.0 – 4.0.4** | ❌ **Not Supported** | Early MoveOS 4 builds lack required diagnostics/overlay stability. Update your scooter to MoveOS 4.0.5 or above. |
 | **MoveOS 2.x & 3.x** | ❌ **Not Supported** | Legacy firmware interfaces and older partition layouts are incompatible. |
@@ -167,7 +167,7 @@ ola-s1-mods/
 
 > Open-source bundled/downloadable apps (Music Mod, Android Auto, OpenPlay) are distributed under the license of their upstream projects, with their `LICENSE`/`NOTICE` preserved.
 >
-> **Important — SmartBall / Balls APK (`android/app/src/main/assets/balls-1.1.0-lite-release.apk`):** This APK is **closed-source** and is **not** covered by the GPLv3 license of this repository. Anyone using, forking, or redistributing this repository must use the bundled `balls-1.1.0-lite-release.apk` **strictly as-is, without any modification, patching, decompilation, or tampering**.
+> **Important — SmartBall APK (`android/app/src/main/assets/smartball-latest.apk`):** This APK is **closed-source** and is **not** covered by the GPLv3 license of this repository. Anyone using, forking, or redistributing this repository must use the bundled `smartball-latest.apk` **strictly as-is, without any modification, patching, decompilation, or tampering**.
 >
 > *"CarPlay"* is a trademark of Apple Inc.; *"Android Auto"* of Google LLC — used only to describe compatibility, with no affiliation.
 
@@ -198,6 +198,6 @@ ola-s1-mods/
 
 The S1Mods source code in this repository is released under the [GNU General Public License v3.0 (GPLv3)](LICENSE).
 
-**Exception for Bundled SmartBall APK:** `android/app/src/main/assets/balls-1.1.0-lite-release.apk` is closed-source software and is excluded from the GPLv3 license. Any user or fork must use and keep this APK **strictly as-is without any modification**.
+**Exception for Bundled SmartBall APK:** `android/app/src/main/assets/smartball-latest.apk` is closed-source software and is excluded from the GPLv3 license. Any user or fork must use and keep this APK **strictly as-is without any modification**.
 
 All product names, logos, and brands are property of their respective owners. All company, product, and service names used in this software are for identification and compatibility purposes only.

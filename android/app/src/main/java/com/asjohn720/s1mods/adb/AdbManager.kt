@@ -82,12 +82,12 @@ class AdbManager(private val context: Context) {
     }
 
     /**
-     * Grants essential permissions for Balls floating overlay.
+     * Grants essential permissions for SmartBall floating overlay.
      */
     suspend fun grantBallPermissions() = withContext(Dispatchers.IO) {
         val client = activeDadb ?: throw IllegalStateException("ADB not connected")
-        val pkg = "com.asjohn720.ball"
-        val svc = "$pkg/com.asjohn720.ball.core.QuickBallService"
+        val pkg = "com.asjohn720.smartball"
+        val svc = "$pkg/com.asjohn720.smartball.BallService"
 
         // 1. Overlay (SYSTEM_ALERT_WINDOW)
         client.shell("appops set $pkg SYSTEM_ALERT_WINDOW allow")
@@ -99,8 +99,8 @@ class AdbManager(private val context: Context) {
         client.shell("settings put secure enabled_accessibility_services $svc")
         client.shell("settings put secure accessibility_enabled 1")
 
-        // 4. Launch Balls Main Activity
-        client.shell("am start -n $pkg/.ui.MainActivity")
+        // 4. Launch SmartBall Main Activity
+        client.shell("am start -n $pkg/.MainActivity")
 
         // 5. Return to Dashboard Home
         client.shell("am start -n com.olaelectric.hmiclient/.MainActivity")

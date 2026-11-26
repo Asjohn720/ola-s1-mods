@@ -20,7 +20,7 @@
   2. Displays pre-flight safety check (Side stand UP + keep screen active).
   3. Generates/loads RSA 2048 ADB key and binds it via safe in-memory RAM mount (`mount --bind`).
   4. Connects built-in Kotlin ADB client over TCP port `5555`.
-  5. Extracts and installs bundled APKs (**Balls Navigation** and **Music Mod**) directly from app assets.
+  5. Extracts and installs bundled APKs (**SmartBall** and **Music Mod**) directly from app assets.
   6. Automatically grants `SYSTEM_ALERT_WINDOW`, `WRITE_SETTINGS`, and Android Accessibility Service permissions.
   7. Returns scooter to the official dashboard.
 * **🧰 Scooter Toolbox:**

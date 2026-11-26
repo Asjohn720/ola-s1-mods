@@ -31,9 +31,9 @@ enum class ModApp(
 ) {
     BALLS(
         id = "balls",
-        displayName = "Balls Navigation",
-        assetFileName = "balls-1.1.0-lite-release.apk",
-        packageName = "com.asjohn720.ball",
+        displayName = "SmartBall",
+        assetFileName = "smartball-latest.apk",
+        packageName = "com.asjohn720.smartball",
         isMandatory = true,
         description = "Floating nav buttons"
     ),
@@ -237,9 +237,9 @@ class ScooterManager(private val context: Context) {
             currentStep.value = SetupStep.GRANT_PERMISSIONS
             log("\n[4/5] Granting required permissions via ADB...")
             if (selectedApps.contains(ModApp.BALLS)) {
-                log("[*] Configuring Balls Navigation (Overlay, Settings & Accessibility)...")
+                log("[*] Configuring SmartBall (Overlay, Settings & Accessibility)...")
                 adbManager.grantBallPermissions()
-                log("[+] Balls Navigation permissions granted & initialized.")
+                log("[+] SmartBall permissions granted & initialized.")
             }
 
             if (selectedApps.contains(ModApp.ANDROID_AUTO)) {
@@ -350,9 +350,9 @@ class ScooterManager(private val context: Context) {
         // Automatically apply required permissions
         when (app) {
             ModApp.BALLS -> {
-                log("[*] Configuring Balls Navigation overlay & permissions...")
+                log("[*] Configuring SmartBall overlay & permissions...")
                 adbManager.grantBallPermissions()
-                log("[+] Balls permissions configured.")
+                log("[+] SmartBall permissions configured.")
             }
             ModApp.ANDROID_AUTO -> {
                 log("[*] Configuring Android Auto permissions...")
@@ -402,7 +402,7 @@ class ScooterManager(private val context: Context) {
         try {
             val client = ensureGrpc()
             val launchCmd = when (packageName) {
-                "com.asjohn720.ball" -> "am start -n com.asjohn720.ball/.ui.MainActivity"
+                "com.asjohn720.smartball" -> "am start -n com.asjohn720.smartball/.MainActivity"
                 else -> "monkey -p $packageName -c android.intent.category.LAUNCHER 1"
             }
             val out = client.shell(launchCmd).second

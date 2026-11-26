@@ -391,7 +391,7 @@ fun CustomApkScreen(manager: ScooterManager) {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Balls Navigation
+                // SmartBall
                 ModAppRow(
                     app = ModApp.BALLS,
                     icon = Icons.Default.Navigation,
@@ -405,7 +405,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                             try {
                                 val ok = manager.openApp(ModApp.BALLS.packageName, ModApp.BALLS.displayName)
                                 if (ok) {
-                                    Toast.makeText(context, "Balls Navigation opened", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "SmartBall opened", Toast.LENGTH_SHORT).show()
                                 }
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -416,7 +416,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     },
                     onInstall = {
                         pendingConfirmation = AppConfirmation(
-                            title = "Install Balls Navigation?",
+                            title = "Install SmartBall?",
                             message = "Permissions are set up automatically.",
                             confirmButtonText = "Install",
                             isDestructive = false
@@ -425,7 +425,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                                 activeAppAction = "${ModApp.BALLS.id}:installing"
                                 try {
                                     manager.installSingleModApp(ModApp.BALLS)
-                                    Toast.makeText(context, "Balls Navigation installed & configured!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "SmartBall installed & configured!", Toast.LENGTH_SHORT).show()
                                     refreshAllData()
                                 } catch (e: Exception) {
                                     manager.log("[!] Install failed: ${e.message}")
@@ -438,7 +438,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                     },
                     onUninstall = {
                         pendingConfirmation = AppConfirmation(
-                            title = "Uninstall Balls Navigation?",
+                            title = "Uninstall SmartBall?",
                             message = "It will be removed from the scooter.",
                             confirmButtonText = "Uninstall",
                             isDestructive = true
@@ -447,7 +447,7 @@ fun CustomApkScreen(manager: ScooterManager) {
                                 activeAppAction = "${ModApp.BALLS.id}:uninstalling"
                                 try {
                                     manager.uninstallPackage(ModApp.BALLS.packageName)
-                                    Toast.makeText(context, "Balls Navigation uninstalled", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "SmartBall uninstalled", Toast.LENGTH_SHORT).show()
                                     refreshAllData()
                                 } catch (e: Exception) {
                                     manager.log("[!] Uninstall failed: ${e.message}")
