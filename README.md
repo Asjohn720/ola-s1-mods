@@ -2,12 +2,12 @@
 
 [![Target OS](https://img.shields.io/badge/MoveOS-≥%204.0.5%20(4.0.5%20%26%20Above)-green.svg)](#supported-vehicles--compatibility-matrix)
 [![Head Unit OS](https://img.shields.io/badge/Head%20Unit-Android%2010%20%7C%2013-blue.svg)](#technical-specifications)
-[![Stack](https://img.shields.io/badge/Stack-Kotlin%20Compose%20+%20Python%203%20+%20ADB-brightgreen.svg)](#key-features)
+[![Stack](https://img.shields.io/badge/Stack-Kotlin%20Compose%20+%20ADB-brightgreen.svg)](#key-features)
 [![Protocol](https://img.shields.io/badge/Protocol-Diagnostics%20gRPC%20%28Port%2050005%29-orange.svg)](#technical-specifications)
 [![Safety](https://img.shields.io/badge/Safety-100%25%20In--Memory%20RAM%20Mount-blueviolet.svg)](#safety-reversibility--zero-flash-modification)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-An automated, one-click open-source setup utility and standalone Android application to enable wireless ADB, configure **Floating Touch Navigation (Back, Home, Settings)** and **Music Player** on MoveOS-powered infotainment units running **MoveOS 4.0.5 and above**.
+An automated, one-click open-source standalone Android application to enable wireless ADB, configure **Floating Touch Navigation (Back, Home, Settings)** and **Music Player** on MoveOS-powered infotainment units running **MoveOS 4.0.5 and above**.
 
 Zero soldering, zero flash partition writes, and 100% reversible with a single vehicle restart.
 
@@ -31,22 +31,14 @@ All trademarks, product names, and brand references belong to their respective o
 
 ---
 
-## ⚡ Quick Start: Android App (Recommended - No PC Needed)
+## ⚡ Quick Start: Android App (No PC Needed)
 
 1. Turn on **Personal Hotspot** on your Android phone.
 2. On your scooter display, go to **Settings > Wi-Fi** and connect to your phone's hotspot.
-3. Install and open [`S1Mods-v1.2.apk`](S1Mods-v1.2.apk) on your phone.
+3. Install and open the **S1Mods** APK from **Releases** (or build from [`android/`](android/)) on your phone.
 4. Tap **Scan** *(allow Location permission when prompted — Android requires this to scan local devices)*. If auto-scan is blocked by your phone's security, copy the scooter's **MAC or IP** from **Hotspot > Connected Devices** and paste it via the **Edit (✏️)** button.
 5. Ensure the scooter's **side stand is UP** and screen is awake.
 6. Tap **1-CLICK AUTOMATED SETUP** — within seconds, navigation controls and music mod are installed!
-
----
-
-## 💻 Alternative Quick Start: Windows PC
-
-1. **Same Wi-Fi Network:** Connect PC and Scooter to the same Wi-Fi or phone hotspot.
-2. **Scooter Awake:** Side stand UP, screen active.
-3. Run **`setup.bat`** in the repository root.
 
 ---
 
@@ -68,7 +60,7 @@ Watch the modded infotainment interface and floating touch navigation running li
 
 ## ✨ Key Features
 
-* 📲 **All-in-One Android App (`S1Mods`):** Complete standalone Android application to auto-detect your scooter over a phone hotspot, authorize wireless ADB, install bundled mod APKs, capture screenshots, and open settings directly from your phone — **zero PC required!** Located in [`android/`](android/) and pre-compiled as [`S1Mods-v1.2.apk`](S1Mods-v1.2.apk).
+* 📲 **All-in-One Android App (`S1Mods`):** Complete standalone Android application to auto-detect your scooter over a phone hotspot, authorize wireless ADB, install bundled mod APKs, capture screenshots, and open settings directly from your phone — **zero PC required!** Source located in [`android/`](android/).
 * 🔍 **Zero-Config Auto-Discovery & Hotspot Helper:** Automatically scans IPv6 link-local multicast and local hotspot subnets. Includes an instant MAC-to-IPv6 converter using SLAAC EUI-64 standards.
 * 🛡️ **Zero Power-Manager Tampering (Safe Auto-Lock):** Does **NOT** alter the system power manager or force persistent stay-on. Your scooter's built-in auto-lock and anti-theft security remain 100% untouched.
 * 🛡️ **Safe & Reversible In-Memory ADB Authorization:** Authorizes ADB over TCP port 5555 using a temporary RAM bind-mount (`mount --bind`). No system, vendor, or boot partitions are ever modified.
@@ -76,8 +68,7 @@ Watch the modded infotainment interface and floating touch navigation running li
 * 🎵 **Offline & Streaming Music Player:** Installs **Music Mod**, giving you ad-free music playback directly from the dash.
 * 📦 **Pre-Bundled Local APKs:** Modded application packages are pre-bundled in `apks/` (`balls-1.0.0-lite-release.apk` and `musicmod-release.apk`) for instant, offline installation with zero external dependencies.
 * 🛠️ **Automated Permission Grants:** Grants `SYSTEM_ALERT_WINDOW` (overlay), `WRITE_SETTINGS`, and Android Accessibility Services via ADB without manual prompt tapping.
-* 🎯 **1-Click Execution:** Run via Android App or double-click `setup.bat` on PC.
-* 🔍 **Diagnostics & Properties Helper (`ola.py`):** Standalone Python diagnostics utility communicating over local gRPC to inspect vehicle properties, open settings, capture screenshots, or run diagnostic queries.
+* 🎯 **1-Click Execution:** Run directly from the S1Mods Android App.
 
 ---
 
@@ -136,30 +127,6 @@ The budget **Ola S1 X** series uses a conventional non-touch digital instrument 
 
 ---
 
-## 🛠️ Diagnostics & Device Utility (`ola.py`)
-
-The included `ola.py` script communicates directly with the scooter's local diagnostics gRPC service on port 50005 over your local network:
-
-```bash
-# Display scooter hardware & firmware details
-python ola.py info --ipv6 fe80::1234:5678:9abc:def0%22
-
-# Launch native Android Settings menu (Wi-Fi, Bluetooth, Apps, Display, etc.)
-python ola.py settings --ipv6 fe80::1234:5678:9abc:def0%22
-
-# Open specific settings panel
-python ola.py wifi --ipv6 fe80::1234:5678:9abc:def0%22
-python ola.py bluetooth --ipv6 fe80::1234:5678:9abc:def0%22
-
-# Capture head-unit screenshot to PC
-python ola.py screenshot dash.png --ipv6 fe80::1234:5678:9abc:def0%22
-
-# Inspect system build properties
-python ola.py shell "getprop ro.build.version.release" --ipv6 fe80::1234:5678:9abc:def0%22
-```
-
----
-
 ## 🔒 Safety, Reversibility & Zero Flash Modification
 
 * **Zero Partition Writes:** No system, vendor, boot, or recovery partitions are touched or flashed.
@@ -176,12 +143,9 @@ python ola.py shell "getprop ro.build.version.release" --ipv6 fe80::1234:5678:9a
 ola-s1-mods/
 ├── android/               # S1Mods Standalone Android Application
 ├── .gitignore             # Standard Git ignore rules
+├── CHANGELOG.md           # Version release notes
 ├── LICENSE                # GNU GPLv3 License with research & safety disclaimer
-├── ola.py                 # Pure Python gRPC diagnostics engine
-├── README.md              # Project documentation & user guide
-├── requirements.txt       # Python dependencies (grpcio)
-├── setup.bat              # 1-Click Windows launcher
-└── setup.py               # Automated discovery, ADB authorization, and installation engine
+└── README.md              # Project documentation & user guide
 ```
 
 ---
@@ -195,14 +159,17 @@ ola-s1-mods/
 
 ### 🤝 Acknowledgments & Credits
 
-* **Dev Vikram Singh ([@itsmobsys](https://github.com/itsmobsys))** — Core reverse-engineering research on the Ola S1 `wifican` diagnostics gRPC protocol, the `scootermode`/ADB-key authorization technique, and the original `ola.py` in the [`ola-s1-rea`](https://github.com/itsmobsys/ola-s1-rea) project.
+* **Dev Vikram Singh ([@itsmobsys](https://github.com/itsmobsys))** — Core reverse-engineering research on the Ola S1 `wifican` diagnostics gRPC protocol and the `scootermode`/ADB-key authorization technique in the [`ola-s1-rea`](https://github.com/itsmobsys/ola-s1-rea) project.
 * **Special thanks — Axiom ([pitzel/axiom](https://codeberg.org/pitzel/axiom), Apache-2.0)** 🤝 — for its open diagnostic, CAN telemetry and fault-detection research on Ola scooters.
-* **Chayan Mistry** — [Quick Ball](https://github.com/chayanforyou/QuickBall), the floating touch navigation overlay the Balls mod is based on.
 * **Lelonio** — [Square](https://github.com/Lelonio/Square), the open-source music player the bundled Music Mod is a fork of.
 * **shihabal3amri** — [DiPlay](https://github.com/shihabal3amri/DiPlay), the open-source projection app that OpenPlay is a fork of.
 * The open-source Android and automotive reverse engineering community.
 
-> Each bundled or downloadable app (Balls, Music Mod, Android Auto, OpenPlay) is distributed under the license of its upstream project, with its `LICENSE`/`NOTICE` preserved. *"CarPlay"* is a trademark of Apple Inc.; *"Android Auto"* of Google LLC — used only to describe compatibility, with no affiliation.
+> Open-source bundled/downloadable apps (Music Mod, Android Auto, OpenPlay) are distributed under the license of their upstream projects, with their `LICENSE`/`NOTICE` preserved.
+>
+> **Important — SmartBall / Balls APK (`android/app/src/main/assets/balls-1.1.0-lite-release.apk`):** This APK is **closed-source** and is **not** covered by the GPLv3 license of this repository. Anyone using, forking, or redistributing this repository must use the bundled `balls-1.1.0-lite-release.apk` **strictly as-is, without any modification, patching, decompilation, or tampering**.
+>
+> *"CarPlay"* is a trademark of Apple Inc.; *"Android Auto"* of Google LLC — used only to describe compatibility, with no affiliation.
 
 ---
 
@@ -229,4 +196,8 @@ ola-s1-mods/
 
 ## 📄 License
 
-This software is released under the [GNU General Public License v3.0 (GPLv3)](LICENSE). All product names, logos, and brands are property of their respective owners. All company, product, and service names used in this software are for identification and compatibility purposes only.
+The S1Mods source code in this repository is released under the [GNU General Public License v3.0 (GPLv3)](LICENSE).
+
+**Exception for Bundled SmartBall APK:** `android/app/src/main/assets/balls-1.1.0-lite-release.apk` is closed-source software and is excluded from the GPLv3 license. Any user or fork must use and keep this APK **strictly as-is without any modification**.
+
+All product names, logos, and brands are property of their respective owners. All company, product, and service names used in this software are for identification and compatibility purposes only.
